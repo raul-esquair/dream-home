@@ -259,6 +259,14 @@ export function Testimonials() {
         <div
           ref={viewportRef}
           className="tm-viewport"
+          /* Flat, this is a horizontally scrolling region. Browsers do not
+             agree on making one keyboard-reachable by itself, so it takes a
+             tabstop and a name of its own — otherwise the arrow keys never
+             reach the quotes. The shelf needs neither: there it is a drag
+             surface, and the cards themselves are the tabstops. */
+          tabIndex={flat ? 0 : undefined}
+          role={flat ? "group" : undefined}
+          aria-label={flat ? "Client quotes" : undefined}
           data-paused={paused || undefined}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

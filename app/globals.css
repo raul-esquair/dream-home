@@ -1288,11 +1288,29 @@
    * grid of upright cards. The paper stacks stay — they do not move.
    * ---------------------------------------------------------------- */
   @media (hover: none), (prefers-reduced-motion: reduce) {
+    /* A swipeable row, not a stack. Eight cards down the page cost about
+       eight screens of scrolling for content a visitor reads at most a couple
+       of, so flat means flat *horizontally*: one screen, swiped through.
+       Native scroll-snap rather than a JS carousel — the platform already has
+       momentum, rubber-banding at the ends, interruption mid-throw and
+       keyboard support, all of it better than a reimplementation and none of
+       it a transform for an engine to disagree about. */
     .tm-viewport {
-      /* The flat grid is ordinary content, not full-bleed; it keeps gutters. */
-      padding-inline: 20px;
-      overflow: visible;
       margin-top: 26px;
+      /* Full-bleed: the row runs to both screen edges and the track carries
+         the gutter, so a card can sit flush left with the next one peeking. */
+      padding-inline: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      scroll-padding-inline-start: 20px;
+      /* Keeps a swipe past the last card from turning into a page-level
+         horizontal bounce. */
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+    }
+    .tm-viewport::-webkit-scrollbar {
+      display: none;
     }
     .tm-stage {
       width: 100%;
@@ -1337,13 +1355,17 @@
        keeps a narrow screen from overflowing. */
     .tm-track {
       animation: none;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+      display: flex;
+      flex-wrap: nowrap;
+      /* Every card the height of the tallest, so the row reads as a row. */
       align-items: stretch;
-      justify-content: center;
-      width: auto;
-      gap: 30px;
-      padding-block: 0;
+      justify-content: flex-start;
+      width: max-content;
+      gap: 18px;
+      padding-inline: 20px;
+      /* `overflow-y: hidden` on the scroller would otherwise cut the cards'
+         drop shadow off top and bottom. */
+      padding-block: 10px 24px;
     }
     .tm-slot {
       margin-right: 0;
@@ -1368,12 +1390,14 @@
        width of a phone unused. Here the face returns to the flow and sets the
        height from its own content, and the slots share the row. */
     .tm-slot {
-      /* The grid track owns the width now; the slot must not restate it. */
-      width: auto;
+      flex: 0 0 auto;
+      /* Narrower than the screen on purpose: the sliver of the next card is
+         the only thing telling a visitor the row moves. */
+      width: min(78vw, 340px);
       height: auto;
       max-width: none;
       min-width: 0;
-      flex: initial;
+      scroll-snap-align: start;
     }
     /* Full height of the slot the row stretched, so the attribution's
        `margin-top: auto` still lands on the bottom edge. */

@@ -394,12 +394,25 @@ The design has two breakpoints, exposed as `max-wide:` (≤1100px) and `max-mobi
   `!important` is there because Motion writes an identity transform inline even with every
   rotation at zero, and an inline style outranks this file. Nothing in the grid is 3D, so
   the context should not exist at all.
-- The flat grid's cards are laid out with `grid-template-columns: repeat(auto-fit,
-  minmax(min(260px, 100%), 1fr))` rather than a flex basis. The first attempt used
-  `flex: 1 1 260px` with wrap, grow and a `max-width`, and every one of those interacts —
-  the final width depends on basis resolution, free-space distribution across the line, and
-  the cap. A grid track is decided once by the container, so every cell is identical by
-  construction. Measured at 375px: one column, all cards `left: 20` and `width: 335`.
+- Flat means flat **horizontally**. Stacked, the eight quotes ran 2,168px on a phone — 2.1
+  screens of scrolling, for content a visitor reads two of at most, sitting between the tour
+  and the FAQ. The fallback is now a swipeable row: 426px tall, the same content, 1,742px
+  saved. It is native `scroll-snap-type: x mandatory` rather than a JS carousel, because the
+  platform already has momentum, rubber-banding at the ends, interruption mid-throw and
+  keyboard support, all of it better than a reimplementation and none of it a transform for
+  an engine to disagree about — which is what went wrong here twice already. Measured: a
+  250px nudge lands on 311, exactly one card plus its gap, with the next card flush to the
+  gutter.
+- Cards are `min(78vw, 340px)`, deliberately narrower than the screen: the sliver of the
+  next card is the only affordance saying the row moves. The track is full-bleed and carries
+  the gutter itself, so a card can sit flush left with the next one peeking, and
+  `overscroll-behavior-x: contain` stops a swipe past the last card becoming a page-level
+  bounce. `padding-block` on the track buys back the room `overflow-y: hidden` would
+  otherwise cut off the cards' drop shadow.
+- The scroller takes a tabstop and an `aria-label` when flat. Browsers do not agree on making
+  a scrollable region keyboard-reachable on its own, and without it the arrow keys never
+  reach the quotes. The shelf needs neither — there it is a drag surface and the cards
+  themselves are the tabstops.
 - Because flattening is the only thing that makes a quote readable, it cannot be the only
   way in. Cards carry `tabIndex` so keyboard reaches the same state, and `@media (hover:
   none)` — which is also where prefers-reduced-motion lands — replaces the whole shelf
