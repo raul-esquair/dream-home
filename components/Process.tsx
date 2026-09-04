@@ -175,6 +175,15 @@ export function Process() {
       const target = videoTime.get();
       if (Math.abs(video.currentTime - target) <= 1 / 48) return;
 
+      // Nothing buffered at all. iOS treats `preload` as advisory and on a
+      // cellular connection holds the element empty, so the guard below would
+      // wait for a range that only a seek will ever request — the scrub never
+      // starting rather than stalling. Ask for the frame instead.
+      if (video.buffered.length === 0) {
+        if (video.readyState >= 1) video.currentTime = target;
+        return;
+      }
+
       // readyState only promises data at the current position. Seeking into a
       // gap stalls until the range arrives, which on a cold connection is the
       // scrub freezing rather than easing.
@@ -207,6 +216,57 @@ export function Process() {
       video?.removeEventListener("loadedmetadata", settle);
     };
   }, [videoTime, videoIndex, index, reduced]);
+
+  /**
+   * Wake the element up before anything tries to scrub it.
+   *
+   * iOS will not decode or paint a frame for a `<video>` that has never been
+   * played, however much data it holds — scrubbing `currentTime` on a
+   * never-played element leaves the panel black, which is exactly what the
+   * tour did on a phone while working everywhere else. A muted, `playsInline`
+   * video is allowed to autoplay, so start it and stop it again: the play is
+   * what makes iOS fetch and render, and the rAF loop puts the frame right on
+   * its next pass.
+   *
+   * Autoplay can still be refused — Low Power Mode blocks even muted video —
+   * so the same nudge is retried on the first real interaction and then
+   * dropped.
+   */
+  useEffect(() => {
+    if (reduced) return;
+    let woken = false;
+
+    const wake = () => {
+      const video = videoRef.current;
+      if (woken || !video) return;
+      const started = video.play();
+      if (started && typeof started.then === "function") {
+        started
+          .then(() => {
+            video.pause();
+            woken = true;
+            detach();
+          })
+          .catch(() => {
+            /* Refused: leave the listeners in place for a gesture. */
+          });
+      } else {
+        video.pause();
+        woken = true;
+        detach();
+      }
+    };
+
+    const detach = () => {
+      window.removeEventListener("touchstart", wake);
+      window.removeEventListener("pointerdown", wake);
+    };
+
+    wake();
+    window.addEventListener("touchstart", wake, { passive: true });
+    window.addEventListener("pointerdown", wake, { passive: true });
+    return detach;
+  }, [reduced]);
 
   /** Rounded step for the rail counter. Changes four times, so the re-render
    *  cost is four renders across the whole track, not one per frame. */

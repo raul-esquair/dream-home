@@ -72,6 +72,15 @@ the horizontal pool onto it.
 - **Scrubbed video must be all-intra.** The delivered clip had one keyframe, making every
   seek decode from zero. `public/assets/tour.mp4` is re-encoded so each frame is its own
   keyframe; the ffmpeg command is in `README.md`. Never swap it without re-encoding.
+- **iOS will not paint a frame for a video that has never been played**, however much data
+  it holds, and it treats `preload` as advisory — on cellular the element stays empty. Both
+  bit the tour at once: the panel was black on a phone while working everywhere else. The
+  element is woken with a muted `play()` immediately followed by `pause()` (allowed by
+  autoplay policy, retried on the first gesture because Low Power Mode refuses it), and the
+  seek loop no longer requires a buffered range before its first seek — with zero ranges the
+  old guard could never assign `currentTime`, and assigning it is what makes the browser
+  fetch. A guard that waits for data which only the guarded action would request is a
+  deadlock, not a safeguard.
 - **Masks, filters and opacity flatten a 3D context.** Put them on a wrapper *outside* the
   element carrying `perspective`, or the whole 3D effect collapses.
 - **`position: sticky` creates a stacking context.** `.ps-seam` relies on this to paint

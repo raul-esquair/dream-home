@@ -327,6 +327,20 @@ The design has two breakpoints, exposed as `max-wide:` (≤1100px) and `max-mobi
   times per paint and each one would be a seek the decoder services and discards. The loop
   also skips seeks while `video.seeking` is true, and will not seek to a time outside
   `video.buffered` — `readyState` only promises data at the current position.
+- The tour needs waking on iOS. Safari will not decode or paint a frame for a `<video>` that
+  has never been played, and it treats `preload` as advisory — on a cellular connection the
+  element holds nothing at all. Together those left the panel black on a phone while the
+  numerals, copy and rail ran normally, which is what made it look like a styling problem
+  rather than a media one. `<Process>` now starts the video and pauses it on the next tick;
+  a muted, `playsInline` video is allowed to autoplay, and the play is what makes iOS fetch
+  and render. Low Power Mode refuses even that, so the same nudge is retried on the first
+  interaction and then dropped.
+- The seek guard had a matching deadlock. It only assigned `currentTime` when the target fell
+  inside a `video.buffered` range, which is right for skipping a gap on a cold connection —
+  but with **zero** ranges the loop body never ran, and assigning `currentTime` is precisely
+  what asks the browser for that range. A guard waiting on data that only the guarded action
+  would request never resolves. It now seeks straight away when nothing is buffered, and
+  keeps the gap check for when there is something to check against.
 - The section runs **two clocks off one scroll position**. `index` is raw, so the numerals,
   copy and dots are nailed to the gesture; only `videoIndex` is sprung, and lightly
   (damping ratio ~1.06, ~180ms, no overshoot — overshoot would run the tour backwards past
