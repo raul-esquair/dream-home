@@ -3,9 +3,10 @@
 # Working in this repo
 
 Marketing homepage for Dream Home Real Estate & Home Loans (Tracy, CA). Built from the
-handoff bundle in the parent directory: `../README.md` is the design spec and
-`../Dream Home Homepage.dc.html` is the prototype it was measured against. Single
-conversion goal: book a consultation.
+handoff bundle, which is **not in this repository** — it sits alongside it: its
+`README.md` is the design spec and `Dream Home Homepage.dc.html` is the prototype
+everything here was measured against. Ask for the bundle if you need to check a
+value against the original. Single conversion goal: book a consultation.
 
 `README.md` in this directory is the design record — every non-obvious decision and the
 measurement behind it lives under "Deviations from the prototype". Read that before

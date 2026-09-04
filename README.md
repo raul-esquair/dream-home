@@ -1,8 +1,9 @@
 # Dream Home — homepage
 
 Next.js (App Router) + Tailwind v4 implementation of the Dream Home Real Estate & Home Loans
-homepage. Built from the handoff bundle in the parent directory (`../README.md` is the design
-spec; `../Dream Home Homepage.dc.html` is the prototype it was measured against).
+homepage. Built from a design handoff bundle that is **not part of this repository** — its
+own `README.md` is the design spec and `Dream Home Homepage.dc.html` is the prototype every
+value here was measured against.
 
 ```bash
 npm run dev     # http://localhost:3000
