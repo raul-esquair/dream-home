@@ -1,26 +1,1492 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ------------------------------------------------------------------ *
+ * Design tokens — the contract from README.md.
+ * Change values here, never inside components.
+ * ------------------------------------------------------------------ */
+@theme {
+  /* The design has exactly two layout breakpoints: <=1100px and <=860px.
+     Use them as `max-wide:*` (<=1100px) and `max-mobile:*` (<=860px).
+
+     `max-bar:*` (<=1366px) is not a layout breakpoint and nothing about the
+     grid should use it. It exists only for the sticky booking bar, which
+     runs wider than the layout does so it covers iPad landscape — 1366 is
+     the widest of those (12.9-inch), with 1024, 1112, 1180 and 1194 below
+     it. Deliberately a width query and not `(hover: none)`: an iPad with a
+     Magic Keyboard reports `hover: hover`, so a touch guard would fail on
+     exactly the device this is for. */
+  --breakpoint-mobile: 861px;
+  --breakpoint-wide: 1101px;
+  --breakpoint-bar: 1367px;
+
+  /* Color */
+  --color-bg: #08070a;
+  --color-surface: rgba(255, 255, 255, 0.02);
+  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-text: #efeaf2;
+  --color-text-strong: #f6f1f9;
+  --color-text-strongest: #f8f4fb;
+  --color-muted: #a49cb8;
+  --color-muted-2: #b6aec6;
+  --color-muted-3: #c3bbd4;
+  --color-quote: #eae4ef;
+  --color-label: #8d86a0;
+  --color-label-dim: #6f6982;
+  --color-label-dimmest: #5f5a70;
+  --color-nav: #cfc8dc;
+  --color-gold: #c9a227;
+  --color-gold-soft: #f2e6c4;
+  --color-gold-pale: #f7e7b4;
+  --color-gold-link: #e6c877;
+  --color-gold-ghost: #e8dcc0;
+  --color-purple: #7c5cc4;
+  --color-purple-soft: #c5b3ea;
+  --color-marquee: #7e7791;
+
+  /* Type */
+  --font-display: var(--font-marcellus), ui-serif, Georgia, serif;
+  --font-sans: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* The reflection of --ease-out-expo, for the return leg of a
+     reversible transition: the way out should retrace the way in. */
+  --ease-in-expo: cubic-bezier(0.7, 0, 0.84, 0);
+  --animate-shimmer: shimmer 6s linear infinite;
+  --animate-shimmer-slow: shimmer 7s linear infinite;
+  --animate-floaty: floaty 9s ease-in-out infinite;
+  --animate-orbit: orbit 22s ease-in-out infinite;
+  --animate-marquee: marquee 38s linear infinite;
+  --animate-pulse-ring: pulseRing 2.6s infinite;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes orbit {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, -40px) scale(1.15); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes dialogFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* Animates `scale`, not `transform`, and deliberately does not restate the
+   centring. Tailwind v4 compiles `-translate-x-1/2 -translate-y-1/2` to the
+   standalone `translate` property, and `translate` and `transform` both apply
+   — the spec composes them (translate, then rotate, scale, then transform).
+   A keyframe that re-declared `translate(-50%, -50%)` inside `transform` was
+   therefore centring the panel twice: measured, it animated 220px left and
+   269px above its resting place, then snapped into position the instant the
+   keyframe stopped applying. That snap was the jitter on open. */
+@keyframes dialogIn {
+  from { opacity: 0; scale: 0.96; }
+  to   { opacity: 1; scale: 1; }
+}
+@keyframes dialogOut {
+  from { opacity: 1; scale: 1; }
+  to   { opacity: 0; scale: 0.96; }
+}
+@keyframes selectIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(124, 92, 196, 0.45); }
+  70% { box-shadow: 0 0 0 22px rgba(124, 92, 196, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(124, 92, 196, 0); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Renders range tracks, select menus and scrollbars dark. Without this the
+       browser draws them in light mode, which reads as a bug on #08070a. */
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Room for the sticky booking bar. Must track the bar's own breakpoint
+     (--breakpoint-bar), not the layout's, or the bar sits over the footer
+     between 861px and 1366px. */
+  @media (max-width: 1366px) {
+    body { padding-bottom: 84px; }
+  }
+
+  a {
+    color: var(--color-gold-link);
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+  a:hover { color: var(--color-gold-pale); }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-link);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: var(--color-purple);
+    color: #fff;
+  }
+
+  h1, h2, h3, p, blockquote {
+    text-wrap: pretty;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Every section: 1400px wide, 40px gutters, 110px of top air. */
+  .section {
+    position: relative;
+    z-index: 1;
+    margin-inline: auto;
+    max-width: 1400px;
+    padding: 110px 40px 0;
+  }
+  @media (max-width: 860px) {
+    .section { padding: 72px 20px 0; }
+  }
+
+  /* Sections normally rely on the next one's top padding for their lower
+     air. The calculator is followed by the pinned process track, which starts
+     hard against it and supplies none, so it carries its own — matching
+     .section's top padding at both breakpoints. */
+  #calculator {
+    padding-bottom: 110px;
+  }
+  @media (max-width: 860px) {
+    #calculator {
+      padding-bottom: 72px;
+    }
+  }
+
+  /* Anchor targets must clear the sticky header, which is ~78px tall and grows
+     to ~147px on mobile once the nav wraps. Sections already carry enough top
+     padding on desktop; #book has none, so it gets the full offset. */
+  #book { scroll-margin-top: 96px; }
+  @media (max-width: 860px) {
+    .section { scroll-margin-top: 90px; }
+    #book { scroll-margin-top: 160px; }
+  }
+
+  /* Mono eyebrow above every numbered section heading. */
+  .eyebrow {
+    display: block;
+    margin-bottom: 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--color-purple);
+  }
+
+  /* Primary CTA. Hover lift and shadow are applied per usage so they can
+     differ (header -2px, hero -3px) without fighting the base rule. */
+  .btn-gold {
+    background-image: linear-gradient(100deg, #f3dfa2, #c9a227 45%, #f7e7b4 72%, #b3891f);
+    background-size: 200% 100%;
+    background-position: 0% 50%;
+    color: #0b0910;
+    transition:
+      background-position 0.6s ease,
+      translate 0.3s ease,
+      scale 0.12s ease-out,
+      box-shadow 0.3s ease;
+  }
+  /* Feedback on pointer-down, not on release — :active fires immediately. */
+  .btn-gold:active {
+    scale: 0.97;
+  }
+  .btn-gold:hover {
+    background-position: 100% 50%;
+    color: #0b0910;
+  }
+
+  /* Press feedback for anything that reads as a button but is not gold.
+     Same 120ms as .btn-gold so the whole page responds identically. */
+  .pressable {
+    transition: scale 0.12s ease-out;
+  }
+  .pressable:active {
+    scale: 0.97;
+  }
+
+  /* Animated gold text: h1 line two. */
+  .shimmer-text {
+    background-image: linear-gradient(100deg, #f7e7b4, #c9a227 35%, #f7e7b4 60%, #a9821f);
+    background-size: 200% auto;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  /* Calculator payment figure — a slightly different ramp, 7s cycle. */
+  .shimmer-figure {
+    background-image: linear-gradient(100deg, #f7e7b4, #c9a227 40%, #f7e7b4 70%);
+    background-size: 200% auto;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  /* Card fill for listings and testimonials. */
+  .card-surface {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+    transition:
+      translate 0.5s var(--ease-out-expo),
+      border-color 0.4s ease,
+      background-color 0.4s ease,
+      box-shadow 0.5s ease;
+  }
+
+  /* Flat card fill for process steps and blog teasers. */
+  .card-flat {
+    background-color: var(--color-surface);
+    transition:
+      translate 0.5s var(--ease-out-expo),
+      border-color 0.4s ease,
+      background-color 0.4s ease;
+  }
+
+  /* Unfinished photography. Every slot carries a monospace label. */
+  .placeholder-slot {
+    background-image: repeating-linear-gradient(135deg, #14121a 0 14px, #191622 14px 28px);
+  }
+  /* Smaller stripe pitch for the 52px headshot circles. */
+  .placeholder-avatar {
+    background-image: repeating-linear-gradient(135deg, #1b1824 0 6px, #221e2c 6px 12px);
+  }
+
+  /* Form fields. */
+  .field {
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.03);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--color-text);
+    outline: none;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+  }
+  .field::placeholder { color: var(--color-muted); }
+  .field:focus {
+    border-color: rgba(233, 200, 119, 0.6);
+    background-color: rgba(233, 200, 119, 0.05);
+  }
+  .field option { background: #14121a; }
+
+  /* Select dropdown entrance. */
+  [data-slot="select-content"][data-state="open"] {
+    animation: selectIn 0.18s var(--ease-out-expo);
+  }
+
+  /* Dialog. Fast enough to feel responsive at the modal budget; the scrim
+     fades a touch quicker than the panel so the page recedes first. */
+  [data-slot="dialog-overlay"][data-state="open"] {
+    animation: dialogFade 180ms ease-out;
+  }
+  [data-slot="dialog-content"][data-state="open"] {
+    animation: dialogIn 220ms var(--ease-out-expo);
+  }
+  /* It used to leave in a single frame — measured, the panel was out of the
+     DOM within 16ms of Escape, having taken 220ms to arrive. A thing that
+     materialises should dematerialise the same way, along the same path and
+     on the mirrored curve. Radix keeps the node mounted for the duration
+     because it waits on these animations. */
+  [data-slot="dialog-overlay"][data-state="closed"] {
+    animation: dialogFade 180ms ease-in reverse;
+  }
+  [data-slot="dialog-content"][data-state="closed"] {
+    animation: dialogOut 180ms var(--ease-in-expo);
+  }
+
+  /* Lead-form confirmation. The page exists to produce this moment, so it is
+     the one place that earns an entrance. @starting-style degrades to an
+     instant appearance where unsupported. */
+  .lead-sent {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 260ms var(--ease-out-expo),
+      transform 260ms var(--ease-out-expo);
+  }
+  @starting-style {
+    .lead-sent {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Sky band: the dusk photograph behind listings and the calculator.
+   * Swap the image by repointing --sky; the scrim, the seams and the
+   * accessibility fallbacks are independent of the source.
+   * ---------------------------------------------------------------- */
+  /* Hoisted: the bridge at the top of the process track paints the identical
+     sky, and a fixed background aligns to the viewport rather than to its
+     element, so the two line up exactly. Both must stay in sync. */
+  :root {
+    /* 1376x768, 44K — a soft sky compresses to almost nothing. `cover` on a
+       band this tall scales it about 2x and crops the sides, which the
+       photograph takes well: its detail is cloud, and the vertical range
+       (navy through to pale periwinkle) is the part that matters. */
+    --sky: url("/assets/sky.jpg");
+    /* Blackness at the band's lower edge. The tour bridges into it, so it
+       stays open; with no tour below (reduced motion) it closes to solid. */
+    --sky-tail: 0.78;
+    /* The pool of shade down the left. Shared with the bridge: the band and
+       the strip are both full-width, so these stops land on the same screen
+       positions, and the join only disappears if both carry it. Without it on
+       the bridge the seam stayed visible on the left and faded out to the
+       right — exactly where this runs out. */
+    --sky-shade: linear-gradient(
+      90deg,
+      rgba(8, 7, 10, 0.54) 0%,
+      rgba(8, 7, 10, 0.34) 30%,
+      rgba(8, 7, 10, 0.1) 52%,
+      transparent 66%
+    );
+  }
+
+  .sky-band {
+    position: relative;
+    isolation: isolate;
+  }
+
+  /* A band with nothing lit beneath it closes to black at its foot. The first
+     band hands over to the pinned tour and deliberately does not. */
+  .sky-band[data-tail="solid"] {
+    --sky-tail: 1;
+  }
+
+  .sky-band::before,
+  .sky-band::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* #7c5cc4 measures 4.0 on the page's black and 1.5 over the lit sky, so the
+     eyebrow takes the palette's lighter tint of the same hue inside the band. */
+  .sky-band .eyebrow {
+    color: var(--color-purple-soft);
+  }
+
+  /* The listings Pause control sits on open sky at the right, where there is no
+     pool of shade. --color-label measures 3.0 there, so inside the band it gets
+     the lighter label colour and a backing of its own. */
+  .sky-band .tm-toggle {
+    color: var(--color-muted-2);
+    background-color: rgba(11, 9, 17, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .sky-band::before {
+    background-image: var(--sky);
+    background-size: cover;
+    background-position: 50% 32%;
+    /* Anchored to the viewport, not the band. Covering a 1600px-tall band from
+       a 768px-tall source upscales it 2.08x and crops to a third of its width,
+       which smears the cloud structure into a plain gradient; against the
+       viewport it is 1.13x and keeps most of the frame. It also parallaxes,
+       which suits a sky. iOS ignores this and falls back to scrolling with the
+       band — the same picture, just softer. */
+    background-attachment: fixed;
+  }
+
+  /* The page either side of this band is #08070a, so the scrim closes to solid
+     at both ends — without that the band announces itself with two hard seams.
+     The middle stays heavy on purpose: the sky is pale lavender and the type
+     over it is white, muted violet and gold. */
+  .sky-band::after {
+    background-image:
+      /* A pool of shade down the left, where both sections keep their headings
+         and the calculator its lede. Without it the sky can only be as light
+         as the body copy tolerates; with it the open right-hand side stays
+         bright and the type still clears AA. */
+      var(--sky-shade),
+      linear-gradient(
+      180deg,
+      #08070a 0%,
+      rgba(8, 7, 10, 0.7) 7%,
+      rgba(8, 7, 10, 0.44) 26%,
+      rgba(8, 7, 10, 0.46) 60%,
+      rgba(8, 7, 10, 0.7) 86%,
+      /* Does NOT close to black. The pinned tour begins directly below this
+         edge and opens on a dusk sky of its own, under 0.86 of the same
+         scrim — closing to solid put pure black against lit purple and cut a
+         hard line between them. This sits a little under the tour's opening
+         value, so the band stays fractionally the lighter of the two and the
+         sky carries down into the footage rather than stopping at it. */
+      rgba(8, 7, 10, var(--sky-tail)) 100%
+    );
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Affordability card. A dusk interior behind the panel, scrimmed hard
+   * enough for the copy on its left and the frosted readout on its right.
+   * Layers, top down: the brand tint that every other surface carries,
+   * a pool of shade over the copy, an overall floor, then the photograph.
+   * ---------------------------------------------------------------- */
+  .calc-card {
+    /* Shade over the copy. Two-column layout puts the copy on the left, so it
+       is a left-hand pool; stacked, the copy spans the whole card and the pool
+       is the wrong shape — the lede measured 3.55 against it — so it flattens
+       to an even wash below 860px. */
+    /* The lightest shade that still clears AA, found by measurement rather
+       than eye. Two things matter about its shape. It is held flat to 44% —
+       the copy column ends at 41%, and releasing at 36% put the fade through
+       the text, which alone dropped the lede from 6.5 to 2.9. And past the
+       copy it goes to almost nothing, so the room is essentially unshaded
+       everywhere there is no type. Removing it entirely is not an option:
+       against the photograph's windows the lede measures 1.02, the same
+       luminance as its background. */
+    --calc-shade: linear-gradient(
+      90deg,
+      rgba(8, 7, 10, 0.84) 0%,
+      rgba(8, 7, 10, 0.78) 44%,
+      rgba(8, 7, 10, 0.04) 56%,
+      rgba(8, 7, 10, 0.02) 100%
+    );
+
+    background-image:
+      linear-gradient(
+        140deg,
+        rgba(124, 92, 196, 0.22),
+        rgba(201, 162, 39, 0.08) 60%,
+        rgba(255, 255, 255, 0.02)
+      ),
+      var(--calc-shade),
+      linear-gradient(rgba(8, 7, 10, 0.06), rgba(8, 7, 10, 0.06)),
+      url("/assets/calculator-room.jpg");
+    background-size: auto, auto, auto, cover;
+    background-position: 0 0, 0 0, 0 0, 50% 62%;
+    background-repeat: no-repeat;
+  }
+  @media (max-width: 860px) {
+    .calc-card {
+      --calc-shade: linear-gradient(rgba(8, 7, 10, 0.68), rgba(8, 7, 10, 0.68));
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Closing CTA block. Same four-layer stack as the affordability card,
+   * for the same reason — copy on the left, photograph on the right.
+   * Layers, top down: the brand tint every other surface carries, a pool
+   * of shade over the copy, an overall floor, then the photograph.
+   *
+   * The room is a far brighter source than the calculator's: cream walls,
+   * lit marble, a white tub and a backlit window. Measured against its
+   * brightest region under the copy, every value here is heavier than the
+   * calculator's equivalent.
+   * ---------------------------------------------------------------- */
+  .cta-card {
+    /* The lightest shade that still clears AA with margin, found by sweep.
+       Shape first: this block's copy column ends at 50% of the card (the
+       grid is 1.05fr/.95fr inside 64px of padding) against the
+       calculator's 41%, so the hold runs to 53% and the release falls
+       past the text rather than through it.
+       Depth second: 0.72 head put the lede at 4.14 and 0.78 at 4.91 —
+       passing, but thin once the probe's measured 1.5% optimism is taken
+       off. 0.80 leaves the lede at 5.19 and costs almost nothing visibly. */
+    --cta-shade: linear-gradient(
+      90deg,
+      rgba(8, 7, 10, 0.8) 0%,
+      rgba(8, 7, 10, 0.74) 53%,
+      rgba(8, 7, 10, 0.06) 64%,
+      rgba(8, 7, 10, 0.03) 100%
+    );
+
+    background-image:
+      linear-gradient(
+        140deg,
+        rgba(124, 92, 196, 0.2),
+        rgba(201, 162, 39, 0.14) 60%,
+        rgba(255, 255, 255, 0.02)
+      ),
+      var(--cta-shade),
+      /* The photograph opens on the room's lit ceiling, which put a bright
+         edge straight against the scene's near-black at the handover. This
+         holds the top edge near the scene's own tone and releases into the
+         image over the first quarter, so the room emerges rather than
+         starting at full brightness. It only ever darkens, so every figure
+         measured above stays a floor. */
+      linear-gradient(
+        180deg,
+        rgba(8, 7, 10, 0.9) 0%,
+        rgba(8, 7, 10, 0.42) 7%,
+        rgba(8, 7, 10, 0.1) 16%,
+        rgba(8, 7, 10, 0) 26%
+      ),
+      linear-gradient(rgba(8, 7, 10, 0.1), rgba(8, 7, 10, 0.1)),
+      url("/assets/cta-room.jpg");
+    background-size: auto, auto, auto, auto, cover;
+    background-position: 0 0, 0 0, 0 0, 0 0, 50% 50%;
+    background-repeat: no-repeat;
+  }
+  @media (max-width: 860px) {
+    /* Stacked, the copy spans the whole card, so a left-hand pool is the
+       wrong shape — it flattens to an even wash, as the calculator's does. */
+    .cta-card {
+      --cta-shade: linear-gradient(rgba(8, 7, 10, 0.78), rgba(8, 7, 10, 0.78));
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Bridge from the sky band into the pinned tour.
+   *
+   * The band's sky is `background-attachment: fixed`, so it is painted
+   * against the viewport but only *within* the band's own box — it stops
+   * existing at that edge. No scrim value hides that, because the two
+   * sides are showing different things, not the same thing at different
+   * brightness.
+   *
+   * This strip paints the identical fixed sky under the identical scrim.
+   * A fixed background aligns to the viewport, so this one lines up with
+   * the band's to the pixel and the sky simply continues across the
+   * boundary. It then dissolves downward into the footage.
+   *
+   * Anchored to the track, not the pin, so it slides up and away as the
+   * panel pins — the tour is never dimmed once it is being read.
+   * ---------------------------------------------------------------- */
+  .ps-seam {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 300px;
+    /* `position: sticky` gives .ps-pin its own stacking context, so this
+       sibling paints above the whole panel. */
+    z-index: 2;
+    pointer-events: none;
+    background-image:
+      var(--sky-shade),
+      linear-gradient(rgba(8, 7, 10, var(--sky-tail)), rgba(8, 7, 10, var(--sky-tail))),
+      var(--sky);
+    background-size: auto, auto, cover;
+    background-position: 0 0, 0 0, 50% 32%;
+    background-attachment: scroll, scroll, fixed;
+    mask-image: linear-gradient(180deg, #000 0, #000 10%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 10%, transparent 100%);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * The other end of the track, and the mirror of .ps-seam.
+   *
+   * The tour's vertical scrim closes at 0.84 rather than solid, and its
+   * gold bloom is centred on the panel's bottom-right corner — so the
+   * footage is still lit, and warm, exactly where the band below opens on
+   * opaque #08070a. The two edges are not the same colour, which is what
+   * cuts the line.
+   *
+   * This dissolves the last of the tour into the band's own black before
+   * the boundary, so both sides of the seam match. Anchored to the track
+   * rather than the pin for the same reason .ps-seam is: `position:
+   * sticky` gives .ps-pin its own stacking context, so a sibling carrying
+   * a z-index paints above the whole panel.
+   *
+   * It only ever darkens, and the ramp stays near-transparent through the
+   * top half, so the step copy is never dimmed while it is being read.
+   * ---------------------------------------------------------------- */
+  .ps-tail {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 300px;
+    z-index: 2;
+    pointer-events: none;
+    background-image: linear-gradient(
+      180deg,
+      rgba(8, 7, 10, 0) 0%,
+      rgba(8, 7, 10, 0.28) 40%,
+      rgba(8, 7, 10, 0.72) 72%,
+      #08070a 100%
+    );
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Featured listings: a horizontal 3D cylinder. Layout and material
+   * only — every transform is written per frame by ListingCarousel.
+   * ---------------------------------------------------------------- */
+  .lc-shell {
+    position: relative;
+    z-index: 1;
+    /* Reclaim the section's gutters — the ring wants every px it can get, and
+       the fade below means the extra width never reads as an edge. */
+    margin-inline: -40px;
+  }
+
+  .lc-frame {
+    height: 100%;
+    /* Clips the off-stage cards so they cannot widen the page, and dissolves
+       them into the background instead of slicing them against a hard
+       rectangle. It sits outside the perspective element on purpose: a mask on
+       that element would flatten the 3D context inside it. */
+    overflow: hidden;
+    /* Two fades intersected. The horizontal one dissolves the off-stage cards
+       so they are not sliced against a hard rectangle. The vertical one exists
+       for the card shadows: `0 30px 70px` reaches about 100px below a card,
+       further than the frame's own slack, so `overflow: hidden` was cutting it
+       dead and leaving a visible step from darkened to plain background right
+       under the shelf. Kept to 12px, and the frame carries enough slack that
+       it clears the nearest card at every point of the twist — the side cards
+       come closer to the edge than the front one does. */
+    mask-image:
+      linear-gradient(90deg, transparent 0, #000 11%, #000 89%, transparent 100%),
+      linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0, #000 11%, #000 89%, transparent 100%),
+      linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  .lc-viewport {
+    /* Fills the frame so the perspective origin lands on the frame's centre —
+       shrink-wrapping to the stage parks the whole ring against the top. */
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1350px;
+    /* Horizontal drag belongs to the ring; vertical still scrolls the page. */
+    touch-action: pan-y;
+    cursor: grab;
+    user-select: none;
+  }
+  .lc-viewport:active { cursor: grabbing; }
+
+  .lc-stage {
+    position: relative;
+    transform-style: preserve-3d;
+  }
+  .lc-card {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+
+  /* Structural slices. Gold rather than the reference's grey, so the card's
+     edge belongs to the same family as the gilt on the testimonial cards. */
+  .lc-slice {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    background-color: #8a6a18;
+    border: 1px solid #a9821f;
+  }
+
+  .lc-face {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(233, 200, 119, 0.18);
+    background-color: #0d0b12;
+    backface-visibility: hidden;
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, 0.12),
+      0 30px 70px rgba(0, 0, 0, 0.55);
+  }
+
+  /* Back of the card: a dark band across the top, as on the reference. */
+  .lc-stripe {
+    position: absolute;
+    inset-inline: 0;
+    top: 22px;
+    height: 34px;
+    z-index: 1;
+    background-color: rgba(6, 5, 9, 0.88);
+  }
+
+  .lc-toggle {
+    position: absolute;
+    right: 40px;
+    bottom: 0;
+  }
+
+  @media (max-width: 860px) {
+    .lc-shell { margin-inline: -20px; }
+    .lc-toggle {
+      right: 50%;
+      transform: translateX(50%);
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Process: a pinned scroll sequence. The track is N screens tall and
+   * the panel sticks for all of it, so scroll position becomes one
+   * index that the numeral column, the copy and the dots all read.
+   * Everything here is layout only — the motion lives in Process.tsx.
+   * ---------------------------------------------------------------- */
+  .ps-track {
+    position: relative;
+    z-index: 1;
+    scroll-margin-top: 0;
+  }
+
+  .ps-pin {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100svh;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    /* Clear the sticky header, which the pinned panel sits underneath for the
+       whole of the track. */
+    padding-top: clamp(88px, 11vh, 132px);
+    padding-bottom: clamp(20px, 5vh, 56px);
+  }
+
+  /* --- the tour ----------------------------------------------------- */
+  /* Full-bleed behind the pinned panel. Scrubbed by scroll in Process.tsx. */
+  .ps-media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+  .ps-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* The footage is a bright dusk exterior; the page is #08070a. Pulling the
+       brightness and saturation down seats it in the palette before the scrim
+       does the rest. */
+    filter: brightness(0.82) saturate(0.86) contrast(1.03);
+  }
+  .ps-scrim {
+    position: absolute;
+    inset: 0;
+    /* Two jobs. The radial pair seats the footage in the page's own light —
+       the purple orb sits top-left and the gold bottom-right, so the panel
+       carries the same two sources as every other section. The linears below
+       do the legibility work: heaviest on the left where the copy sits and
+       along the top and bottom edges, open on the right so the tour still
+       reads behind the numerals. */
+    background-image:
+      /* Seated below the panel's top edge, not on it. Centred at 0% 0% the
+         purple peaked exactly at the seam, so the tour opened on lit purple
+         directly beneath the sky band's darkest edge — the band shows the
+         image's navy upper region there, because the sky is fixed to the
+         viewport rather than to the band. Dropping the bloom lets the panel
+         start as dark as the edge above it and bloom just after. */
+      radial-gradient(120% 120% at 0% 26%, rgba(124, 92, 196, 0.3), transparent 62%),
+      radial-gradient(110% 120% at 100% 100%, rgba(201, 162, 39, 0.15), transparent 56%),
+      /* Same shape as the calculator's: held flat past the copy, then released.
+         The copy column runs to 53%, and releasing at 34% ran the fade through
+         it — the step body measured 4.37, under AA, for exactly that reason.
+         Holding to 55% puts it at 6.40 while leaving both sides lighter than
+         before. The right does not go to nothing here, unlike the calculator:
+         the numerals live there, and they need 3:1 as display type. */
+      linear-gradient(
+        90deg,
+        rgba(8, 7, 10, 0.8) 0%,
+        rgba(8, 7, 10, 0.74) 55%,
+        rgba(8, 7, 10, 0.28) 68%,
+        rgba(8, 7, 10, 0.24) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(8, 7, 10, 0.86) 0%,
+        rgba(8, 7, 10, 0.16) 32%,
+        rgba(8, 7, 10, 0.22) 64%,
+        rgba(8, 7, 10, 0.84) 100%
+      );
+  }
+
+  .ps-inner {
+    position: relative;
+    z-index: 1;
+    margin-inline: auto;
+    width: 100%;
+    max-width: 1400px;
+    padding: 0 40px;
+  }
+
+  .ps-head {
+    margin-bottom: clamp(28px, 5vh, 64px);
+  }
+
+  .ps-panel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0 clamp(28px, 5vw, 72px);
+  }
+
+  /* --- progress rail ----------------------------------------------- */
+  /* A hairline track that fills gold, the same treatment as the calculator's
+     sliders — this is the page's way of showing a value along a run. */
+  .ps-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+  .ps-dots {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .ps-dot {
+    position: relative;
+    display: block;
+    width: 2px;
+    height: 34px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.13);
+    overflow: hidden;
+  }
+  .ps-dot-fill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image: linear-gradient(180deg, #f3dfa2, #c9a227 45%, #f7e7b4 72%, #b3891f);
+  }
+
+  /* Mono counter, set like the page's other fine print. */
+  .ps-count {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-label-dim);
+  }
+  .ps-count-now { color: var(--color-gold-soft); }
+  .ps-count-sep { color: var(--color-label-dimmest); }
+
+  /* --- step copy ---------------------------------------------------- */
+  /* One slot, four children stacked in it. Grid rather than absolute
+     positioning so the slot is as tall as its tallest step and nothing
+     below it moves as the steps change. */
+  /* The copy rides the same clipped column as the numerals — one slot tall,
+     masked at both edges so a step softens away rather than being cut. */
+  .ps-copy {
+    --ps-copy-h: clamp(150px, 23vh, 208px);
+    position: relative;
+    height: var(--ps-copy-h);
+    max-width: 460px;
+    mask-image: linear-gradient(180deg, transparent, #000 15%, #000 85%, transparent);
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 15%, #000 85%, transparent);
+  }
+  .ps-copy-col {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+  }
+  .ps-copy-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: var(--ps-copy-h);
+  }
+  .ps-title {
+    margin-bottom: 14px;
+    text-wrap: balance;
+    font-family: var(--font-display);
+    font-size: clamp(28px, 3.2vw, 44px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--color-gold-soft);
+  }
+  .ps-body {
+    font-size: 16.5px;
+    line-height: 1.65;
+    color: var(--color-muted-2);
+  }
+
+  /* --- numeral column ----------------------------------------------- */
+  /* The stage is exactly one numeral tall and clips; the column inside it
+     is N numerals tall and slides by one numeral per step. */
+  .ps-stage {
+    --ps-item: clamp(104px, 13vw, 188px);
+    position: relative;
+    /* Three tall, not one: the neighbouring numerals stay on screen so the
+       handover has somewhere to travel from and to. Clipping to a single slot
+       turned every transition into two half-glyphs at the stage edges. */
+    height: calc(var(--ps-item) * 3);
+    width: clamp(150px, 19vw, 280px);
+    mask-image: linear-gradient(180deg, transparent, #000 24%, #000 76%, transparent);
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 24%, #000 76%, transparent);
+  }
+  .ps-column {
+    position: absolute;
+    inset-inline: 0;
+    /* One slot down, so step one sits in the middle of the three. */
+    top: var(--ps-item);
+  }
+  .ps-num {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: var(--ps-item);
+    font-family: var(--font-display);
+    font-size: var(--ps-item);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  /* Both glyphs occupy the same box; the fill cross-fades over the outline. */
+  .ps-num-glyph {
+    position: relative;
+    display: inline-block;
+  }
+  .ps-num-outline {
+    display: block;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(201, 162, 39, 0.42);
+  }
+  /* The active numeral is the largest gold figure on the page, so it takes the
+     same shimmer as the h1's second line and the calculator's payment — the
+     slower 7s ramp, since this one is held still while a step reads. */
+  .ps-num-fill {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(100deg, #f7e7b4, #c9a227 40%, #f7e7b4 70%);
+    background-size: 200% auto;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: shimmer 7s linear infinite;
+  }
+
+  @media (max-width: 1100px) {
+    .ps-panel {
+      grid-template-columns: auto minmax(0, 1fr);
+      row-gap: clamp(24px, 5vh, 48px);
+    }
+    .ps-stage {
+      grid-column: 2;
+      justify-self: start;
+    }
+  }
+  @media (max-width: 860px) {
+    .ps-inner { padding: 0 20px; }
+    .ps-body { font-size: 15.5px; }
+    /* The header wraps its nav below 860px and stands ~147px tall — the same
+       figure #book's scroll-margin uses. Clear that, or the h2 pins under it. */
+    .ps-pin {
+      padding-top: 156px;
+      padding-bottom: 22px;
+    }
+    .ps-head { margin-bottom: 20px; }
+    /* Three slots of numeral plus a copy stage does not fit a phone at desktop
+       sizes; both shrink, and the numerals align left with the copy rather
+       than sitting on a right edge that no longer exists. */
+    .ps-copy { --ps-copy-h: clamp(126px, 19vh, 168px); }
+    .ps-stage {
+      --ps-item: clamp(62px, 17vw, 92px);
+      width: clamp(112px, 32vw, 170px);
+    }
+    .ps-num { justify-content: flex-start; }
+    .ps-dot { height: 26px; }
+    .ps-rail { gap: 14px; }
+  }
+  /* Landscape phones have no vertical room to give at all. */
+  @media (max-width: 860px) and (max-height: 560px) {
+    .ps-pin { padding-top: 92px; }
+    .ps-copy { --ps-copy-h: 108px; }
+    .ps-stage { --ps-item: 56px; }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Testimonials: a shelf of quote cards built like the reference's
+   * books — every layer sheared skewY(30deg), pages fanned out along X.
+   * At rest the quote is decoration; reaching for a card flattens the
+   * shear to 0 and it becomes something you read.
+   *
+   * That gesture only exists for a pointer, so `hover: none` and
+   * prefers-reduced-motion both get the flat grid instead (bottom of
+   * this file). Keyboard gets it via :focus-visible on the card.
+   * ---------------------------------------------------------------- */
+  .tm-section {
+    position: relative;
+    z-index: 1;
+  }
+
+  .tm-viewport {
+    --tm-card-w: 288px;
+    --tm-card-h: 340px;
+    /* The reference's overlap, which it can afford because covers are art.
+       Legibility here is bought by flattening, not by spacing. */
+    --tm-overlap: 112px;
+    --tm-push: 58px;
+    --tm-tilt: -3.5deg;
+    --tm-lean: 30deg;
+
+    position: relative;
+    margin-top: 10px;
+    overflow: hidden;
+    /* Gives the entrance twist somewhere to project into. The cards themselves
+       are 2D, so nothing else in here is affected. Longer than the listings
+       ring's 1350 because this shelf is wider and a shorter throw exaggerates
+       the far cards. */
+    perspective: 1600px;
+    /* Horizontal drag belongs to the shelf; vertical still scrolls the page. */
+    touch-action: pan-y;
+    cursor: grab;
+    user-select: none;
+  }
+  .tm-viewport:active { cursor: grabbing; }
+
+  /* Carries the entrance/exit twist. */
+  .tm-twist {
+    will-change: transform;
+  }
+
+  /* Carries the drag offset. The drift owns .tm-track's transform, and an
+     element only has one, so the two live on separate layers. */
+  .tm-drag {
+    width: max-content;
+    transform: translate3d(var(--tm-drag, 0px), 0, 0);
+    will-change: transform;
+  }
+
+  .tm-stage {
+    /* Wider than the viewport so the rotated track never shows an end, and
+       the fade mask does the ending instead of a hard cut. */
+    width: 118%;
+    margin-left: -9%;
+    transform: rotate(var(--tm-tilt));
+    /* The stage overhangs the screen by 9% each side, so the screen's own edges
+       sit at 9/118 = 7.6% and 92.4% across it. The fade starts there and
+       finishes ~2.5% (about 30px) inside, which lands the cards on the edge of
+       the screen with just enough softening to avoid a hard chop. The stops
+       outside that range are off-screen and never seen. */
+    mask-image: linear-gradient(
+      90deg,
+      transparent 7.6%,
+      #000 10.1%,
+      #000 89.9%,
+      transparent 92.4%
+    );
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 7.6%,
+      #000 10.1%,
+      #000 89.9%,
+      transparent 92.4%
+    );
+  }
+
+  .tm-track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    /* A 288px card sheared 30deg reaches 83px past its box top and bottom;
+       the hover lift adds 24 more. Without this the shelf clips. */
+    padding-block: 116px;
+    animation: marquee 78s linear infinite;
+    will-change: transform;
+  }
+  /* Reading beats drifting. Hover and focus cover the incidental case, the
+     button covers everyone else. */
+  .tm-track:has(.tm-card:hover),
+  .tm-track:has(.tm-card:focus-visible),
+  .tm-viewport[data-paused] .tm-track,
+  .tm-viewport[data-dragging] .tm-track {
+    animation-play-state: paused;
+  }
+
+  .tm-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  /* Sized and coloured as the page's other fine print, so it reads as a
+     caption on the shelf rather than a second call to action. */
+  .tm-toggle {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border: 1px solid var(--color-hairline);
+    border-radius: 999px;
+    background-color: transparent;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-label);
+    cursor: pointer;
+    transition: color 0.3s ease, border-color 0.3s ease, scale 0.12s ease-out;
+  }
+  .tm-toggle:hover {
+    color: var(--color-gold-link);
+    border-color: rgba(233, 200, 119, 0.4);
+  }
+
+  .tm-slot {
+    flex-shrink: 0;
+    width: var(--tm-card-w);
+    height: var(--tm-card-h);
+    margin-right: calc(-1 * var(--tm-overlap));
+    transition: margin 0.5s var(--ease-out-expo);
+  }
+  /* The card being read takes room from both sides, as in the reference. */
+  .tm-slot:has(.tm-card:hover),
+  .tm-slot:has(.tm-card:focus-visible) {
+    margin-left: var(--tm-push);
+    z-index: 999 !important;
+  }
+  .tm-slot:has(+ .tm-slot .tm-card:hover),
+  .tm-slot:has(+ .tm-slot .tm-card:focus-visible) {
+    margin-right: calc(var(--tm-push) - var(--tm-overlap));
+  }
+
+  /* The shear lives here, on the whole object, so one transition flattens the
+     cover and every page under it together. Both states list the same
+     functions in the same order — otherwise the browser interpolates the
+     decomposed matrix and the shear collapses through a twist. */
+  .tm-card {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    outline-offset: 6px;
+    transform: rotate(calc(-1 * var(--tm-tilt))) translateY(0) scale(1) skewY(var(--tm-lean));
+    transition: transform 0.55s var(--ease-out-expo);
+    will-change: transform;
+  }
+  .tm-card:hover,
+  .tm-card:focus-visible {
+    transform: rotate(calc(-1 * var(--tm-tilt))) translateY(-24px) scale(1.03) skewY(0deg);
+  }
+
+  /* --- paper stack ------------------------------------------------- */
+  .tm-stack {
+    position: absolute;
+    inset: 0;
+  }
+  .tm-sheet {
+    position: absolute;
+    inset: 0;
+    border-radius: 3px;
+  }
+  .tm-sheet--paper {
+    /* Colour comes from gilt() in Testimonials.tsx, per sheet. This is only
+       the sheen across the band: lit along the top, shaded at the bottom. */
+    background-image: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.34),
+      rgba(255, 255, 255, 0) 14%,
+      rgba(0, 0, 0, 0) 84%,
+      rgba(0, 0, 0, 0.28)
+    );
+  }
+  .tm-sheet--back {
+    /* Deepest layer: the back cover, sitting past the last sheet. */
+    transform: translateX(var(--tm-depth));
+    background-color: #16121d;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+  }
+
+  /* --- the face ---------------------------------------------------- */
+  .tm-face {
+    position: absolute;
+    inset: 0;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    padding: 32px 30px 28px;
+    border-radius: 4px;
+    border: 1px solid rgba(233, 200, 119, 0.16);
+    background-image:
+      linear-gradient(168deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+      linear-gradient(#0d0b12, #0d0b12);
+    box-shadow:
+      inset 8px 0 18px -8px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      8px 18px 34px rgba(0, 0, 0, 0.62);
+    transition: border-color 0.4s ease, box-shadow 0.55s ease;
+  }
+  .tm-card:hover .tm-face,
+  .tm-card:focus-visible .tm-face {
+    border-color: rgba(233, 200, 119, 0.42);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 34px 74px rgba(0, 0, 0, 0.72);
+  }
+
+  /* Gold edge standing in for a spine. */
+  .tm-spine {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    /* A hairline binding, in proportion to the thinner gilt edge. */
+    width: 1.5px;
+    border-radius: 4px 0 0 4px;
+    background-image: linear-gradient(180deg, #f3dfa2, #c9a227 45%, #f7e7b4 72%, #b3891f);
+    opacity: 0.55;
+    transition: opacity 0.4s ease;
+  }
+  .tm-card:hover .tm-spine,
+  .tm-card:focus-visible .tm-spine { opacity: 1; }
+
+  /* The quote is unreadable while sheared, so it is dimmed to read as texture
+     on the cover, then brought up as the card flattens under the pointer. */
+  .tm-body {
+    opacity: 0.62;
+    transition: opacity 0.55s var(--ease-out-expo);
+  }
+  .tm-card:hover .tm-body,
+  .tm-card:focus-visible .tm-body { opacity: 1; }
+
+  .tm-stars {
+    margin-bottom: 18px;
+    font-size: 15px;
+    letter-spacing: 0.3em;
+    color: var(--color-gold);
+  }
+  .tm-quote {
+    font-family: var(--font-display);
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--color-quote);
+  }
+  .tm-attribution {
+    margin-top: auto;
+    padding-top: 22px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-label);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Flat fallback. Flattening is a pointer gesture; where there is no
+   * pointer, or where motion is unwelcome, the shelf becomes a wrapped
+   * grid of upright cards. The paper stacks stay — they do not move.
+   * ---------------------------------------------------------------- */
+  @media (hover: none), (prefers-reduced-motion: reduce) {
+    .tm-viewport {
+      /* The flat grid is ordinary content, not full-bleed; it keeps gutters. */
+      padding-inline: 20px;
+      overflow: visible;
+      margin-top: 26px;
+    }
+    .tm-stage {
+      width: 100%;
+      margin-left: 0;
+      transform: none;
+      mask-image: none;
+      -webkit-mask-image: none;
+    }
+    .tm-viewport {
+      cursor: auto;
+      touch-action: auto;
+      user-select: auto;
+    }
+    .tm-drag {
+      width: auto;
+      transform: none;
+    }
+    .tm-track {
+      animation: none;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: auto;
+      gap: 30px;
+      padding-block: 0;
+    }
+    .tm-slot {
+      margin-right: 0;
+      margin-left: 0;
+    }
+    /* One copy is enough once nothing is scrolling past. */
+    .tm-slot[data-copy="1"] { display: none; }
+    /* Nothing is drifting, so the pause button has nothing to pause. */
+    .tm-toggle { display: none; }
+    .tm-card,
+    .tm-card:hover,
+    .tm-card:focus-visible {
+      transform: none;
+    }
+    .tm-body { opacity: 1; }
+  }
+
+  @media (max-width: 860px) {
+    .tm-viewport {
+      --tm-card-w: 300px;
+      --tm-card-h: 320px;
+    }
+    .tm-face { padding: 28px 26px 24px; }
+    .tm-quote { font-size: 17px; }
+  }
+
+  /* FAQ answer panel: height-auto via grid rows, not a hardcoded max-height. */
+  .faq-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows 0.5s var(--ease-out-expo),
+      opacity 0.4s ease;
+  }
+  .faq-panel[data-open="true"] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .faq-panel > * { overflow: hidden; }
+}
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion — everything decorative stops. Scroll reveals are
+ * handled in <Reveal>, which renders children already visible.
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  /* Gentler, not zero. Colour and opacity still transition because they aid
+     comprehension; movement does not, so nothing slides, springs or parallaxes. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-property: opacity, color, background-color, border-color, box-shadow !important;
+    transition-duration: 140ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* The dialog still materialises — it just cross-fades instead of scaling.
+     Each state needs its own direction: one rule for both would have played
+     the fade-in while the panel was leaving. */
+  [data-slot="dialog-content"][data-state="open"],
+  [data-slot="dialog-overlay"][data-state="open"] {
+    animation: dialogFade 140ms ease !important;
+  }
+  [data-slot="dialog-content"][data-state="closed"],
+  [data-slot="dialog-overlay"][data-state="closed"] {
+    animation: dialogFade 140ms ease reverse !important;
+  }
+  /* A .001ms marquee would snap the track to -50%; stop it where it is. */
+  .marquee-track {
+    animation: none !important;
+  }
+
+
+  /* No pinned tour to bridge into, so the band closes at its foot again. */
+  :root { --sky-tail: 1; }
+  .ps-seam { display: none !important; }
+
+  /* Scroll reveals render through <Reveal>, which drops the animation under
+     reduced motion. The server still emits Motion's initial `opacity:0`, and
+     React will not strip an inline style it did not set on the client, so the
+     content can hydrate invisible. Force it visible, as the handoff specifies.
+     `filter` is here for the same reason: the "focus" variant emits a blur
+     server-side, and without this the FAQ hydrates permanently out of focus. */
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  /* <SettleIn> drops its animation under reduced motion too, but the server
+     still emits the motion value's initial `opacity: 0` — the same hydration
+     trap, so the same net. Without it the calculator and the closing CTA can
+     both hydrate invisible. */
+  [data-settle] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Hero footage: a looping clip is exactly the motion this setting asks us to
+     stop. <HeroVideo> already swaps in the still via JS; this guarantees it. */
+  [data-hero-clip] { display: none !important; }
+  [data-hero-still] { display: block !important; }
+}
+
+/* ------------------------------------------------------------------ *
+ * Reduced transparency — the page leans on eight blurred surfaces, so
+ * this setting needs an answer: frost them into solids rather than
+ * leaving translucent chrome over moving footage.
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-transparency: reduce) {
+  header,
+  [data-material],
+  .sky-band .tm-toggle,
+  [data-slot="dialog-content"],
+  [data-slot="dialog-overlay"],
+  [data-slot="select-content"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .sky-band .tm-toggle {
+    background-color: #0c0a12 !important;
+  }
+  header {
+    background-color: #08070a !important;
+  }
+  [data-material] {
+    background-color: #0c0a12 !important;
+  }
+  [data-slot="dialog-content"] {
+    background-color: #0c0a10 !important;
+  }
+  [data-slot="dialog-overlay"] {
+    background-color: rgba(6, 5, 9, 0.94) !important;
+  }
+  /* The hero copy sits on footage; without blur it needs a solid floor. */
+  [data-hero-clip],
+  [data-hero-still] {
+    opacity: 0.35 !important;
+  }
+  /* The sky is decoration behind two sections of type. */
+  .sky-band::before { opacity: 0.3 !important; }
+}
+
+/* ------------------------------------------------------------------ *
+ * Increased contrast — near-solid surfaces with defined borders.
+ * ------------------------------------------------------------------ */
+@media (prefers-contrast: more) {
+  header,
+  [data-material],
+  [data-slot="dialog-content"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: #08070a !important;
+    border-color: var(--color-gold-link) !important;
+  }
+  .field {
+    border-color: rgba(255, 255, 255, 0.55) !important;
+  }
+  .field:focus {
+    border-color: var(--color-gold-link) !important;
+  }
+  :focus-visible {
+    outline-width: 3px !important;
+  }
+  [data-hero-clip],
+  [data-hero-still] {
+    opacity: 0.25 !important;
+  }
+  .sky-band::before { display: none !important; }
 }

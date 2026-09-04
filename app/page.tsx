@@ -1,69 +1,59 @@
-import Image from "next/image";
+import { Hero } from "@/components/Hero";
+import { Marquee } from "@/components/Marquee";
+import { FeaturedListings } from "@/components/FeaturedListings";
+import { Calculator } from "@/components/Calculator";
+import { Process } from "@/components/Process";
+import { Testimonials } from "@/components/Testimonials";
+import { Faq } from "@/components/Faq";
+import { BlogTeasers } from "@/components/BlogTeasers";
+import { BookCta } from "@/components/BookCta";
+import { faqs } from "@/lib/content";
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.q,
+    acceptedAnswer: { "@type": "Answer", text: faq.a },
+  })),
+};
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <>
+      <Hero />
+      <Marquee />
+      {/* Listings and the calculator share one dusk sky. A single band so the
+          sky is continuous across both rather than restarting at the seam.
+          Everything after the tour returns to black — the page needs somewhere
+          for the eye to rest before the form. */}
+      <div className="sky-band">
+        <FeaturedListings />
+        <Calculator />
+      </div>
+      <Process />
+      {/* The shelf, the questions and the blog share a second copy of the same
+          sky. Its foot closes to solid, unlike the first band's — what follows
+          is the CTA's own dusk scene, not another lit photograph.
+
+          <BookCta> is deliberately outside the band. It carries a drawn dusk
+          sky and the roofline that closes the page into the footer, and that
+          scene is opaque, so inside the band it occluded the photograph
+          entirely; removing it to let the photograph through gains almost
+          nothing, because the band's scrim has closed to solid by the depth
+          the CTA sits at, and costs the silhouette. */}
+      <div className="sky-band" data-tail="solid">
+        <Testimonials />
+        <Faq />
+        <BlogTeasers />
+      </div>
+      <BookCta />
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+    </>
   );
 }
