@@ -459,6 +459,25 @@ The design has two breakpoints, exposed as `max-wide:` (≤1100px) and `max-mobi
   offered a lower-intent, untrackable alternative to clicking it, on a page with a single
   conversion goal. Both agents are still named throughout — in the hero proof bar, the
   testimonials and the CTA card's reply promise — they just share one published address.
+- The hero lede says one thing. It said three: the differentiator, the process, and the
+  service areas — 232 characters that ran to **six lines** on a phone and pushed the proof
+  bar 174px below the fold and into the roofline artwork, where the captions were
+  unreadable. Two of those three were already on screen. The badge directly above it names
+  Tracy, and the marquee immediately below lists all eight towns, so the geography was said
+  three times inside one screen; "pre-approval, offers and closing" is the process section,
+  which is four sections of exactly that. What is left — "Real estate and home loans under
+  one roof, so first-time buyers are not chasing two teams" — is the only claim the
+  brokerage down the road cannot make, plus who it is for, in two lines.
+- The rest of that screen was measured rather than trimmed by feel. Top padding 220px to
+  168px; the proof bar's avatars to 44px and its gaps tighter below 860px; the families
+  caption dropped "since 2013", which the badge on the same screen already says and which
+  alone was forcing that group onto a third row; and the badge takes lighter tracking on a
+  phone so it holds one line. The proof bar went from **214px across three rows to 122px
+  across two**, and the hero from overflowing by 174px to ending at 662 of 812 — 150px of
+  clear air above the fold, with the roofline below all of it.
+- The avatars' caption said "headshots -> drop here". That was a note to ourselves, live on
+  a public site, costing a line in the tightest part of the layout. The circles read as
+  placeholders on their own, and the open item is tracked below rather than on the page.
 - The sticky booking bar stays out of the way until the hero is behind you. The hero already
   carries this exact call twice, so a third copy pinned over it was noise — and it was
   covering the proof bar, which is the last thing the hero has to say. It is watched with an

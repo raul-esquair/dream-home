@@ -22,9 +22,9 @@ function ProofDivider() {
 export function Hero() {
   return (
     <Scene layout="viewport" media={<HeroVideo />} className="z-[1] min-h-screen">
-      <section id="top" className="section relative z-10 pt-[136px] pb-0 text-center max-mobile:pt-[220px]">
+      <section id="top" className="section relative z-10 pt-[136px] pb-0 text-center max-mobile:pt-[168px]">
         <Reveal index={0}>
-          <div className="mb-[26px] inline-flex items-center gap-[10px] rounded-full border border-[rgba(197,179,234,.45)] bg-[rgba(124,92,196,.18)] px-4 py-[7px] font-mono text-[11px] tracking-[.22em] text-purple-soft uppercase backdrop-blur-[6px]">
+          <div className="mb-[26px] inline-flex items-center gap-[10px] rounded-full border border-[rgba(197,179,234,.45)] bg-[rgba(124,92,196,.18)] px-4 py-[7px] font-mono text-[11px] tracking-[.22em] text-purple-soft uppercase backdrop-blur-[6px] max-mobile:mb-5 max-mobile:text-[10px] max-mobile:tracking-[.12em]">
             <span
               aria-hidden
               className="animate-pulse-ring h-[7px] w-[7px] shrink-0 rounded-full bg-purple"
@@ -42,10 +42,15 @@ export function Hero() {
         </Reveal>
 
         <Reveal index={2}>
-          <p className="mx-auto mb-[28px] max-w-[610px] text-[18.5px] leading-[1.65] text-[#d6cee4]">
-            Real estate and home loans under one roof, so you are not chasing two teams. We walk
-            first-time buyers through pre-approval, offers and closing across Tracy, Stockton,
-            Lathrop, Patterson and the South &amp; East Bay.
+          {/* One claim, not three. The service areas were two of six lines here
+              and are already carried twice within a screen — the badge above
+              names Tracy, and the marquee directly below lists all eight
+              towns. "Pre-approval, offers and closing" is the process section,
+              four sections of it. What is left is the only thing this page can
+              say that the brokerage down the road cannot, and who it is for. */}
+          <p className="mx-auto mb-[28px] max-w-[560px] text-[18.5px] leading-[1.65] text-[#d6cee4] max-mobile:text-[17px]">
+            Real estate and home loans under one roof, so first-time buyers are not chasing
+            two teams.
           </p>
         </Reveal>
 
@@ -67,14 +72,14 @@ export function Hero() {
         </Reveal>
 
         <Reveal index={4}>
-          <div className="mx-auto flex max-w-[860px] flex-wrap items-center justify-center gap-x-[30px] gap-y-5 border-t border-[rgba(255,255,255,.12)] pt-6 text-left">
+          <div className="mx-auto flex max-w-[860px] flex-wrap items-center justify-center gap-x-[30px] gap-y-5 border-t border-[rgba(255,255,255,.12)] pt-6 text-left max-mobile:gap-x-5 max-mobile:gap-y-3 max-mobile:pt-4">
             {/* TODO: real headshots for Sonny and Dhruv (not stock). */}
             <div className="flex items-center gap-[14px]">
               <div className="flex">
                 {["SG", "DG"].map((initials, i) => (
                   <span
                     key={initials}
-                    className={`placeholder-avatar flex h-[52px] w-[52px] items-center justify-center rounded-full border-[1.5px] border-[rgba(233,200,119,.55)] font-mono text-[8px] tracking-[.1em] text-label ${
+                    className={`placeholder-avatar flex h-[52px] w-[52px] items-center justify-center rounded-full border-[1.5px] border-[rgba(233,200,119,.55)] font-mono text-[8px] tracking-[.1em] text-label max-mobile:h-11 max-mobile:w-11 ${
                       i === 1 ? "-ml-4" : ""
                     }`}
                   >
@@ -82,11 +87,12 @@ export function Hero() {
                   </span>
                 ))}
               </div>
+              {/* The circles read as placeholder avatars on their own; the
+                  caption under them said "headshots -> drop here", which is a
+                  note to ourselves that shipped to a live site and cost a line
+                  in the tightest part of the layout. Tracked in README instead. */}
               <div className="leading-[1.5]">
                 <div className="text-[14.5px] text-text">Sonny &amp; Dhruv Goswamy</div>
-                <div className="font-mono text-[10px] tracking-[.18em] text-muted-3 uppercase">
-                  headshots &#8594; drop here
-                </div>
               </div>
             </div>
 
@@ -108,8 +114,11 @@ export function Hero() {
 
             <div className="leading-[1.5]">
               <div className="font-display text-[19px] text-gold-soft">{proof.familiesHelped}</div>
+              {/* "Since 2013" is already in the badge at the top of the same
+                  screen; repeating it here only made the caption wide enough
+                  to force its own row. */}
               <div className="mt-[5px] font-mono text-[10px] tracking-[.18em] text-muted-3 uppercase">
-                Families helped since 2013
+                Families helped
               </div>
             </div>
           </div>
