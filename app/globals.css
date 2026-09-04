@@ -1305,24 +1305,45 @@
       cursor: auto;
       touch-action: auto;
       user-select: auto;
+      /* The shelf's projection has to go, not just its rotation. `perspective`
+         stayed on this element in the flat layout, so the stacked grid was
+         still being rendered through a 1600px projection with .tm-twist inside
+         it. Chromium collapses an identity 3D transform and shows nothing;
+         Safari projects it, and in a tall single column each card sits a
+         different distance from the perspective origin, so they land at
+         different widths and offsets — a stagger that grows down the column.
+         Nothing here is 3D once it is a grid, so the context should not exist. */
+      perspective: none;
+    }
+    /* Motion writes an identity transform inline even with every rotation at
+       0, and an inline style outranks this file. With the perspective gone it
+       projects to nothing, but a 3D rendering context around a flat grid is
+       still not something to leave lying around for an engine to interpret. */
+    .tm-twist {
+      transform: none !important;
+      transform-style: flat;
     }
     .tm-drag {
       width: auto;
       transform: none;
     }
+    /* Grid, not flex. The first pass sized these with `flex: 1 1 260px` plus
+       wrap, grow and a max-width, and every one of those interacts: the final
+       width depends on basis resolution, free-space distribution across the
+       line, and the cap, which engines do not agree on. iOS Safari staggered
+       the cards where Chromium did not. A grid track is decided once, by the
+       container, so every cell is identical by construction — `auto-fit` gives
+       one column on a phone and two once there is room, and `min(260px, 100%)`
+       keeps a narrow screen from overflowing. */
     .tm-track {
       animation: none;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+      align-items: stretch;
       justify-content: center;
       width: auto;
       gap: 30px;
       padding-block: 0;
-      /* The shelf centres its cards on a common axis, which is right when they
-         are overlapping slabs of equal size. Once they are content-height and
-         share a row, centring leaves both tops and bottoms ragged — stretch
-         squares the pair off instead. On a phone every card is its own row, so
-         this changes nothing there. */
-      align-items: stretch;
     }
     .tm-slot {
       margin-right: 0;
@@ -1347,12 +1368,12 @@
        width of a phone unused. Here the face returns to the flow and sets the
        height from its own content, and the slots share the row. */
     .tm-slot {
+      /* The grid track owns the width now; the slot must not restate it. */
       width: auto;
       height: auto;
-      /* Basis rather than a fixed width: one per row on a phone, two once
-         there is room for them — a tablet in portrait also lands here. */
-      flex: 1 1 260px;
-      max-width: 420px;
+      max-width: none;
+      min-width: 0;
+      flex: initial;
     }
     /* Full height of the slot the row stretched, so the attribution's
        `margin-top: auto` still lands on the bottom edge. */

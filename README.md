@@ -383,6 +383,23 @@ The design has two breakpoints, exposed as `max-wide:` (≤1100px) and `max-mobi
   instead walks it toward khaki, which is what put the edges off-palette in the first
   pass. The ramp runs `--color-gold-pale` nearest the cover to the deep end of the
   shimmer gradient at the outer edge.
+- The flat grid has to drop the shelf's **projection**, not just its rotation. `perspective:
+  1600px` lived on `.tm-viewport` and was never reset when the shelf became a stacked grid,
+  so the cards were still being rendered through a 3D context with `.tm-twist` inside it.
+  Chromium collapses an identity 3D transform and shows nothing wrong; Safari projects it,
+  and in a tall single column every card sits a different distance from the perspective
+  origin — they landed at different widths and offsets, a stagger that grew down the column
+  with the top card widest and running off-screen. The flat block now sets `perspective:
+  none` and forces `.tm-twist` back to `transform: none` / `transform-style: flat`; the
+  `!important` is there because Motion writes an identity transform inline even with every
+  rotation at zero, and an inline style outranks this file. Nothing in the grid is 3D, so
+  the context should not exist at all.
+- The flat grid's cards are laid out with `grid-template-columns: repeat(auto-fit,
+  minmax(min(260px, 100%), 1fr))` rather than a flex basis. The first attempt used
+  `flex: 1 1 260px` with wrap, grow and a `max-width`, and every one of those interacts —
+  the final width depends on basis resolution, free-space distribution across the line, and
+  the cap. A grid track is decided once by the container, so every cell is identical by
+  construction. Measured at 375px: one column, all cards `left: 20` and `width: 335`.
 - Because flattening is the only thing that makes a quote readable, it cannot be the only
   way in. Cards carry `tabIndex` so keyboard reaches the same state, and `@media (hover:
   none)` — which is also where prefers-reduced-motion lands — replaces the whole shelf
