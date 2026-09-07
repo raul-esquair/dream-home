@@ -687,6 +687,13 @@
     position: absolute;
     inset: 0;
     transform-style: preserve-3d;
+  }
+  /* Promotion is worth it while the ring is turning and pure cost when it is
+     not: six cards, each a preserve-3d stack of five layers carrying a
+     `0 30px 70px` shadow, is a lot of compositor memory to hold for a section
+     eight screens away. ListingCarousel sets the attribute from the same
+     IntersectionObserver that gates its loop. */
+  [data-lc-live] .lc-card {
     will-change: transform;
   }
 

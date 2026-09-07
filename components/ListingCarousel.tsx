@@ -169,6 +169,10 @@ export function ListingCarousel() {
    *  front card is magnified by D/(D-FRONT_Z), but z falls as it travels, so
    *  the measured ratio comes in under that; CALIBRATION corrects it. */
   const pxPerUnit = useRef(1);
+  /** Last value written for each slot's non-transform styles. See the loop. */
+  const lastStyle = useRef<
+    { visibility: string; zIndex: string; pointerEvents: string }[]
+  >([]);
 
   const [paused, setPaused] = useState(false);
 
@@ -195,6 +199,34 @@ export function ListingCarousel() {
   const twistZ = useTransform(scrollYProgress, IN, [-1.4, -0.4, 0, 0, 0.4, 1.4]);
   const [size, setSize] = useState({ w: 300, h: 406, box: 1200 });
   const reduced = useReducedMotion();
+
+  /**
+   * Whether there is a real pointer. Two of this component's behaviours are
+   * hover gestures wearing pointer-event clothing, and on a touchscreen both
+   * of them latched:
+   *
+   *  - the drift holds while the cursor rests on the ring. A tap fires the
+   *    compatibility `mouseenter`, so `held` went true — and nothing ever
+   *    fires `mouseleave` for a finger that has lifted, so it stayed true and
+   *    the ring never turned again. That is the carousel "not cycling".
+   *  - the tilt follows the cursor and releases on `pointerleave`. Touch
+   *    `pointermove` fed it, including during an ordinary vertical scroll, and
+   *    document `pointerleave` does not fire for touch — so the ring was left
+   *    permanently skewed at wherever the last finger was, and lurched under
+   *    every scroll on the way there.
+   *
+   * Neither has a touch equivalent worth building: a finger cannot rest on a
+   * card, and drag already gives touch direct control. Resolved after mount —
+   * the server has no matchMedia — so the first client render still matches.
+   */
+  const [fine, setFine] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => setFine(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   /* Card size follows the container, not the window — the section is capped at
      1400px, so viewport-relative sizing would push cards outside it. */
@@ -234,7 +266,7 @@ export function ListingCarousel() {
   }, []);
 
   useEffect(() => {
-    if (reduced) return;
+    if (reduced || !fine) return;
     const onMove = (e: PointerEvent) => {
       pointer.current.tx = Math.max(-1, Math.min(1, (e.clientX - innerWidth / 2) / (innerWidth / 2)));
       pointer.current.ty = Math.max(-1, Math.min(1, (e.clientY - innerHeight / 2) / (innerHeight / 2)));
@@ -248,13 +280,21 @@ export function ListingCarousel() {
     return () => {
       window.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerleave", onLeave);
+      // Leaving a stale tilt behind would freeze the ring mid-lean if the
+      // pointer capability changes under us.
+      pointer.current = { x: 0, y: 0, tx: 0, ty: 0 };
     };
-  }, [reduced]);
+  }, [reduced, fine]);
 
   useEffect(() => {
     if (reduced) return;
     const { w: cardW, box } = size;
     pxPerUnit.current = (cardW + GAP) * (D / (D - FRONT_Z)) * CALIBRATION;
+    lastStyle.current = Array.from({ length: slots }, () => ({
+      visibility: "",
+      zIndex: "",
+      pointerEvents: "",
+    }));
 
     const tick = () => {
       frame.current = requestAnimationFrame(tick);
@@ -294,11 +334,24 @@ export function ListingCarousel() {
         const abs = Math.abs(offset);
         const sign = Math.sign(offset);
 
+        /* Only write what changed. `visibility`, `zIndex` and `pointerEvents`
+           each invalidate style when assigned, even to the value already
+           there, and three of those across every slot on every frame is a
+           recalc the ring does not need — the transform is the only one of the
+           four that genuinely differs frame to frame. */
+        const last = lastStyle.current[i];
+
         if (abs > 3) {
-          card.style.visibility = "hidden";
+          if (last.visibility !== "hidden") {
+            card.style.visibility = "hidden";
+            last.visibility = "hidden";
+          }
           continue;
         }
-        card.style.visibility = "visible";
+        if (last.visibility !== "visible") {
+          card.style.visibility = "visible";
+          last.visibility = "visible";
+        }
 
         let x = 0;
         let z = 0;
@@ -335,10 +388,18 @@ export function ListingCarousel() {
         const tiltY = pointer.current.x * 15 * centre;
         const tiltX = -pointer.current.y * 12 * centre;
 
-        card.style.zIndex = String(Math.round(z));
+        const zIndex = String(Math.round(z));
+        if (last.zIndex !== zIndex) {
+          card.style.zIndex = zIndex;
+          last.zIndex = zIndex;
+        }
         // Only the card at the front takes the pointer — the CTA must not be a
         // moving target, and a half-turned card should not swallow clicks.
-        card.style.pointerEvents = centre > 0.85 ? "auto" : "none";
+        const events = centre > 0.85 ? "auto" : "none";
+        if (last.pointerEvents !== events) {
+          card.style.pointerEvents = events;
+          last.pointerEvents = events;
+        }
         card.style.transform =
           `translateX(${(-sign * x).toFixed(2)}px) translateZ(${z.toFixed(2)}px) ` +
           `rotateY(${(-sign * rot + tiltY).toFixed(2)}deg) ` +
@@ -347,12 +408,63 @@ export function ListingCarousel() {
       }
     };
 
-    frame.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame.current);
+    /**
+     * Turn the ring only while it is on screen.
+     *
+     * This loop used to run for the life of the page: six cards, each a
+     * `preserve-3d` stack of five layers, re-transformed every frame from the
+     * hero all the way down to the footer. Nothing about the ring depends on
+     * scroll, so there was no reason to notice — but the cost was charged to
+     * every other section's frame budget, and on a phone that is most of why
+     * the page felt heavy everywhere rather than just here.
+     *
+     * `progress` lives in a ref, so the ring picks up exactly where it stopped
+     * rather than snapping. A hidden tab gets the same treatment: rAF is
+     * already throttled there, but the drift would otherwise bank up time it
+     * then has to spend.
+     */
+    const start = () => {
+      if (frame.current) return;
+      frame.current = requestAnimationFrame(tick);
+    };
+    const stop = () => {
+      cancelAnimationFrame(frame.current);
+      frame.current = 0;
+    };
+
+    let onScreen = false;
+    const sync = () => {
+      if (onScreen && !document.hidden) start();
+      else stop();
+    };
+
+    const shell = shellRef.current;
+    const io = new IntersectionObserver(
+      (entries) => {
+        onScreen = entries.some((entry) => entry.isIntersecting);
+        // The frame's shadows and the twist both reach past the section.
+        shell?.toggleAttribute("data-lc-live", onScreen);
+        sync();
+      },
+      { rootMargin: "150px 0px" },
+    );
+    if (shell) io.observe(shell);
+    document.addEventListener("visibilitychange", sync);
+
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", sync);
+      shell?.removeAttribute("data-lc-live");
+      stop();
+    };
   }, [size, slots, half, reduced]);
 
   const hold = (on: boolean) => {
     held.current = on || paused;
+  };
+  /** Hover hold, for pointers that can actually hover. See `fine`. */
+  const hoverHold = (on: boolean) => {
+    if (fine) hold(on);
   };
 
   /** Distance in px before a press counts as a drag rather than a tap. */
@@ -364,7 +476,16 @@ export function ListingCarousel() {
     if ((e.target as HTMLElement).closest("[data-lc-toggle]")) return;
     drag.current = { on: true, lastX: e.clientX, lastT: e.timeStamp, moved: false };
     velocity.current = 0;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    /* Capture is an optimisation, not a requirement — the drag reads clientX
+       either way. It throws when the pointer is already gone by the time the
+       handler runs, which a finger can manage and a mouse cannot, and an
+       uncaught throw here left `drag.on` true with no path back: the ring
+       stopped for good, looking exactly like the hover latch above. */
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* Without capture the window listeners below are what end the drag. */
+    }
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -392,15 +513,41 @@ export function ListingCarousel() {
     drag.current.lastT = e.timeStamp;
   };
 
-  const endDrag = (e: React.PointerEvent) => {
+  /** Finish a drag. Shared by the element handlers and the window net below. */
+  const settleDrag = () => {
     if (!drag.current.on) return;
     drag.current.on = false;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
     // Cap the throw, or a hard flick spins the ring for seconds.
     velocity.current = Math.max(-0.12, Math.min(0.12, velocity.current));
   };
+
+  const endDrag = (e: React.PointerEvent) => {
+    if (!drag.current.on) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    settleDrag();
+  };
+
+  /**
+   * The net for a release the element never hears about.
+   *
+   * With pointer capture the element gets its own `pointerup` wherever the
+   * finger lifts, so this is dead weight — but capture is exactly what is
+   * missing in the case that needs it, and a drag left `on` freezes the ring
+   * permanently rather than degrading. `pointercancel` is the common one on
+   * touch: the browser fires it and nothing else when it takes the gesture
+   * over for a scroll or a second finger arrives.
+   */
+  useEffect(() => {
+    if (reduced) return;
+    window.addEventListener("pointerup", settleDrag);
+    window.addEventListener("pointercancel", settleDrag);
+    return () => {
+      window.removeEventListener("pointerup", settleDrag);
+      window.removeEventListener("pointercancel", settleDrag);
+    };
+  });
 
   /** A flick that coasts almost exactly one card: v / (1 - FRICTION). */
   const step = (dir: number) => {
@@ -427,8 +574,8 @@ export function ListingCarousel() {
           aria-roledescription="carousel"
           aria-label="Featured listings. Drag, or use the left and right arrow keys."
           tabIndex={0}
-          onMouseEnter={() => hold(true)}
-          onMouseLeave={() => hold(false)}
+          onMouseEnter={() => hoverHold(true)}
+          onMouseLeave={() => hoverHold(false)}
           onFocusCapture={() => hold(true)}
           onBlurCapture={() => hold(false)}
           onPointerDown={onPointerDown}
