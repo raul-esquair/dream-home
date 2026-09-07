@@ -175,24 +175,32 @@ export function Process() {
       const target = videoTime.get();
       if (Math.abs(video.currentTime - target) <= 1 / 48) return;
 
-      // Nothing buffered at all. iOS treats `preload` as advisory and on a
-      // cellular connection holds the element empty, so the guard below would
-      // wait for a range that only a seek will ever request — the scrub never
-      // starting rather than stalling. Ask for the frame instead.
-      if (video.buffered.length === 0) {
-        if (video.readyState >= 1) video.currentTime = target;
-        return;
-      }
+      // Metadata is the floor for assigning `currentTime` at all.
+      if (video.readyState < 1) return;
 
-      // readyState only promises data at the current position. Seeking into a
-      // gap stalls until the range arrives, which on a cold connection is the
-      // scrub freezing rather than easing.
-      for (let i = 0; i < video.buffered.length; i += 1) {
-        if (target >= video.buffered.start(i) && target <= video.buffered.end(i)) {
-          video.currentTime = target;
-          return;
-        }
-      }
+      /**
+       * Seek whether or not the target is already buffered.
+       *
+       * There used to be a guard here that only assigned `currentTime` when
+       * the target fell inside a buffered range, on the reasoning that seeking
+       * into a gap stalls. It is the same deadlock the zero-range case above it
+       * was written to escape, and it was only ever escaped for zero ranges:
+       * assigning `currentTime` is what makes the browser fetch, so a target
+       * outside every range was never requested, the range never grew, and the
+       * next frame made the identical decision. The tour held its first frame
+       * for the whole track.
+       *
+       * That is the normal case on a phone, which is why this only ever showed
+       * up there. `preload="auto"` is advisory — iOS and Android both downgrade
+       * it on cellular and hold one short range near zero, so every step past
+       * the first sat in a gap and the guard rejected all of them.
+       *
+       * Seeking into a gap costs a stall until the range arrives. Never seeking
+       * costs the whole feature. `video.seeking` above already keeps this to
+       * one request in flight, so the stall resolves on the frame the data
+       * lands rather than queueing decodes behind it.
+       */
+      video.currentTime = target;
     };
 
     /**
@@ -210,9 +218,42 @@ export function Process() {
     video?.addEventListener("loadedmetadata", settle);
     settle();
 
-    frame = requestAnimationFrame(tick);
-    return () => {
+    /**
+     * Only scrub while the track is on screen.
+     *
+     * The loop used to run for the life of the page, polling a spring and
+     * comparing `currentTime` on every frame of every other section — a video
+     * decoder kept warm behind eight screens of content that never look at it.
+     * On a phone that is a measurable share of the frame budget the rest of the
+     * page is trying to spend, and it is the same tax the listings ring was
+     * paying; both are why scrolling anywhere felt heavy.
+     *
+     * The track is four screens tall, so `rootMargin` only has to cover the
+     * approach. `settle()` on entry lands the right frame rather than letting
+     * the spring travel to it from wherever it was parked.
+     */
+    const start = () => {
+      if (frame) return;
+      settle();
+      frame = requestAnimationFrame(tick);
+    };
+    const stop = () => {
       cancelAnimationFrame(frame);
+      frame = 0;
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) start();
+        else stop();
+      },
+      { rootMargin: "200px 0px" },
+    );
+    if (trackRef.current) io.observe(trackRef.current);
+
+    return () => {
+      io.disconnect();
+      stop();
       video?.removeEventListener("loadedmetadata", settle);
     };
   }, [videoTime, videoIndex, index, reduced]);

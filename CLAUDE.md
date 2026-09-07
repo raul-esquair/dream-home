@@ -77,10 +77,43 @@ the horizontal pool onto it.
   bit the tour at once: the panel was black on a phone while working everywhere else. The
   element is woken with a muted `play()` immediately followed by `pause()` (allowed by
   autoplay policy, retried on the first gesture because Low Power Mode refuses it), and the
-  seek loop no longer requires a buffered range before its first seek — with zero ranges the
-  old guard could never assign `currentTime`, and assigning it is what makes the browser
-  fetch. A guard that waits for data which only the guarded action would request is a
-  deadlock, not a safeguard.
+  seek loop does not consult `buffered` at all. A guard that waits for data which only the
+  guarded action would request is a deadlock, not a safeguard — and that guard was fixed
+  once, for zero ranges only, which left the identical deadlock for *partial* ranges. That
+  is the normal case on a phone: `preload="auto"` is downgraded on cellular to one short
+  range near zero, so every step past the first sat in a gap, was rejected, and therefore
+  was never fetched. The tour held its first frame for the whole track. Seeking into a gap
+  costs a stall; never seeking costs the feature. `video.seeking` is the only guard needed.
+- **`autoPlay` is a request, and a phone refuses it two different ways.** Low Power Mode and
+  Data Saver block even a muted, `playsInline` clip outright; and iOS *suspends* an
+  autoplaying video the moment it leaves the viewport, which the hero does on the first
+  flick. Neither fires an error and both read to a visitor as "the video didn't play", the
+  second as a clip stuck partway. Any autoplaying clip here needs the retry `<HeroVideo>`
+  and `<Process>` both carry: first gesture, re-entering view, and tab re-focus, torn down
+  only on `ended`.
+- **Hover gestures latch on a touchscreen.** A tap fires the compatibility `mouseenter`, and
+  nothing ever fires the matching `mouseleave` for a finger that has lifted — so the
+  listings ring's hover-to-hold went true on first tap and stayed true, and the drift never
+  resumed. Document `pointerleave` likewise never fires for touch, which left the ring's
+  cursor-tilt frozen at the last finger position and jerking under ordinary vertical
+  scrolls. Both are now behind a `(hover: hover) and (pointer: fine)` check resolved after
+  mount. Suspect this for anything that acquires state on enter and releases it on leave.
+- **`setPointerCapture` throws when the pointer is already gone**, which a finger manages and
+  a mouse does not. Uncaught, it aborted `onPointerDown` after `drag.on` was already true,
+  and the ring froze for good with no path back — indistinguishable on screen from the
+  hover latch above. It is an optimisation, not a requirement: wrap it, and keep a
+  window-level `pointerup`/`pointercancel` net so a release the element never hears about
+  still ends the drag. `pointercancel` is the common one on touch, fired alone when the
+  browser takes the gesture over for a scroll.
+- **Scroll-driven and self-driving loops must be gated on visibility.** The listings ring
+  re-transformed six cards — each a `preserve-3d` stack of five layers — on every frame from
+  the hero to the footer, and the tour's scrub loop polled a spring and a decoder for just
+  as long. Neither depends on scroll position, so neither looked wrong; the cost was charged
+  to every *other* section's frame budget, which is why the whole page felt heavy on a phone
+  rather than just these two. At rest the page ran ~150 rAF callbacks/sec; gated on an
+  `IntersectionObserver`, it runs none. `will-change` is scoped to the same observer
+  (`[data-lc-live]`) — promotion is worth it while the ring turns and pure compositor memory
+  when it does not.
 - **Masks, filters and opacity flatten a 3D context.** Put them on a wrapper *outside* the
   element carrying `perspective`, or the whole 3D effect collapses.
 - **`position: sticky` creates a stacking context.** `.ps-seam` relies on this to paint
