@@ -22,8 +22,14 @@ import {
  * Two things carry the effect and are easy to break:
  *  - Depth reads only if the rates stay ordered: the sky lags furthest
  *    (largest positive y), the foreground leads (negative y).
- *  - The hills are near-black and only register as silhouettes because the sky
- *    sits well above them tonally. Darkening the sky flattens the whole scene.
+ *  - Against the drawn sky the hills are near-black and only register as
+ *    silhouettes because the sky sits well above them tonally. Darkening the
+ *    sky flattens the whole scene, and lightening those ridges inverts it.
+ *    The hero is the exception and has its own pair (`dh-far-lit`,
+ *    `dh-mid-lit`): it substitutes footage for the drawn sky, and footage is
+ *    darker than #43354f, so silhouette values collapse into a single muddy
+ *    mass there. Read the ridges against whichever backdrop they actually sit
+ *    on — the two are not interchangeable.
  */
 
 /**
@@ -75,6 +81,36 @@ function SceneDefs() {
       <linearGradient id="dh-front" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor="#120d13" />
         <stop offset="100%" stopColor="#08060a" />
+      </linearGradient>
+
+      {/* The same two ridges, lit for the hero.
+       *
+       * The ridges above are sized to be read against the *drawn* sky, which
+       * bottoms out at #43354f — `dh-far` opens at #3b3352 precisely so it
+       * falls just under it and reads as a silhouette. That margin is the
+       * whole effect in the closing CTA, and lightening these would invert it.
+       *
+       * The hero has no drawn sky. Its ridges sit over dusk footage that is
+       * far darker than #43354f, so the same values that read as silhouettes
+       * against the sky collapsed into one muddy mass against the clip —
+       * ridge, ridge and roofline all near-black with nothing between them.
+       * These are the same hues carrying more light, which is what the footage
+       * leaves room for. Ordering is preserved and is what has to stay true:
+       * far sits above mid, mid above the #120d13 roofline.
+       *
+       * The hero's proof labels (--color-muted-3) run through this band, so
+       * the lift is bounded by them, not by taste: far measures 6.03 and mid
+       * 8.39 against #c3bbd4, both clear of AA. A further step (#564a7d /
+       * #332a54) still measured 5.43 but put the far ridge level with the sky
+       * above it, which flattened the depth it exists to create.
+       */}
+      <linearGradient id="dh-far-lit" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#4d4370" />
+        <stop offset="100%" stopColor="#382f57" />
+      </linearGradient>
+      <linearGradient id="dh-mid-lit" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#2b2247" />
+        <stop offset="100%" stopColor="#1c1633" />
       </linearGradient>
     </defs>
   );
@@ -238,7 +274,7 @@ export function Scene({
             style={{ y: far, bottom: "6vh", height: "30vh" }}
             className="pointer-events-none absolute inset-x-0 -z-30"
           >
-            <Hills d={FAR_HILLS} fill="url(#dh-far)" className="h-full w-full opacity-90" />
+            <Hills d={FAR_HILLS} fill="url(#dh-far-lit)" className="h-full w-full opacity-90" />
           </motion.div>
 
           <motion.div
@@ -246,7 +282,7 @@ export function Scene({
             style={{ y: mid, bottom: "-2vh", height: "32vh" }}
             className="pointer-events-none absolute inset-x-0 -z-20"
           >
-            <Hills d={MID_HILLS} fill="url(#dh-mid)" className="h-full w-full" />
+            <Hills d={MID_HILLS} fill="url(#dh-mid-lit)" className="h-full w-full" />
           </motion.div>
         </>
       ) : (

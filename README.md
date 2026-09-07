@@ -81,6 +81,21 @@ The design has two breakpoints, exposed as `max-wide:` (≤1100px) and `max-mobi
   it gains almost nothing, because by the depth the CTA sits at the band's scrim has already
   closed to solid, and it costs the silhouette. The CTA's drawn sky is the same dusk family
   as the photograph, which is what the continuity was for.
+- **The hero's two ridges are a lighter purple than the CTA's, and that split is the point.**
+  Both scenes draw the same `FAR_HILLS` / `MID_HILLS` paths, and they used to share one pair
+  of gradients tuned for the drawn sky: it bottoms out at `#43354f`, and `dh-far` opens at
+  `#3b3352` so it lands just under it and reads as a silhouette. That narrow margin is the
+  whole effect in `<BookCta>`. The hero replaces the drawn sky with footage, which is far
+  darker, so against it the same values had nothing to read against — far ridge, mid ridge
+  and the `#120d13` roofline all arrived near-black and stacked into one muddy mass under the
+  proof row. The hero now uses `dh-far-lit` (`#4d4370 → #382f57`) and `dh-mid-lit`
+  (`#2b2247 → #1c1633`); the CTA keeps the originals, and lightening those would invert its
+  silhouette rather than improve it. The lift is bounded by the proof labels, which run
+  through this band in `--color-muted-3`: worst case, taking each ridge's lightest end as
+  fully covering the label, far measures **5.29** and mid **8.00** against a 4.5 floor. One
+  further step (`#564a7d` / `#332a54`) still measured 5.43 but put the far ridge level with
+  the sky above it, flattening the depth the ridges exist to create. Tonal ordering — far
+  above mid, mid above the roofline — is the invariant, not the specific values.
 - Extending the band surfaced one real AA failure and two thin margins, none of them visible
   by eye. The blog cards' kicker is `text-purple`, not an `.eyebrow`, so the existing
   `.sky-band .eyebrow` rule did not reach it: **2.37 over the lit sky**, against a 4.5 floor
