@@ -88,7 +88,7 @@ export async function submitPreapproval(
   // drop a duplicate.
   const leadId = crypto.randomUUID();
 
-  const delivered = await deliverLead({
+  const lead: Lead = {
     leadId,
     values: { ...values, phone: formatPhone(digits) },
     tel: `+1${digits}`,
@@ -96,11 +96,18 @@ export async function submitPreapproval(
     duringHours,
     ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown",
     userAgent: h.get("user-agent") ?? "unknown",
-  });
+  };
+
+  const delivered = await deliverLead(lead);
 
   if (!delivered) {
     return fail(`That didn’t go through on our end. Please call us at ${officePhone.display}.`, 3);
   }
+
+  // The email is the record; the push is the alarm. It goes only after the
+  // email is accepted (so Dhruv never gets a push for a lead the visitor was
+  // told had failed), and it can't fail the lead — see pushToPhone.
+  await pushToPhone(lead);
 
   // Only a delivered lead earns the conversion cookie. Short-lived, and
   // <ConversionPing> deletes it on first read, so a refresh or a later visit
@@ -217,5 +224,75 @@ async function deliverLead(lead: Lead): Promise<boolean> {
   } catch (err) {
     console.error("[preapproval] could not reach Resend", err);
     return false;
+  }
+}
+
+/**
+ * Push to Dhruv's phone through ntfy, so a lead rings in seconds instead of
+ * waiting on an email notification — the 5-minute promise depends on it.
+ *
+ *   NTFY_TOPIC   the topic's name; setting it turns pushes on
+ *   NTFY_TOKEN   optional — only for a reserved (password-protected) topic
+ *   NTFY_SERVER  defaults to https://ntfy.sh
+ *
+ * The push carries the lead's name and number (tap to call). The client chose
+ * a public topic (14 Sep 2026): on ntfy.sh anyone who knows a public topic's
+ * name can read it, so THE NAME IS THE PASSWORD — keep it long and random
+ * (e.g. dreamhome-leads-7fq2k9x4m8r1v6tz), never guessable, and treat it like
+ * a secret in Netlify. Moving to a reserved topic later needs only NTFY_TOKEN.
+ *
+ * Sent as JSON, not headers: header values must be Latin-1, and a lead named
+ * "Nguyễn" or a price with an en dash would make fetch throw.
+ *
+ * ntfy.sh keeps messages for 12 hours; the iPhone app needs that to deliver,
+ * so caching is left on.
+ *
+ * Never throws and never holds the visitor for long: a 4-second cap, and any
+ * failure is only logged — the email has already gone out.
+ */
+async function pushToPhone(lead: Lead): Promise<void> {
+  const topic = process.env.NTFY_TOPIC;
+  if (!topic) {
+    if (process.env.NODE_ENV !== "production") console.info("[preapproval] (dev) push skipped — NTFY_TOPIC not set");
+    return;
+  }
+  const token = process.env.NTFY_TOKEN;
+
+  const v = lead.values;
+  const firstName = v.name.split(/\s+/)[0];
+  const when = v.timeframe === "Just exploring" ? "just exploring" : `buying in ${v.timeframe}`;
+  const facts = [v.area, v.price, when, v.firstHome === "Yes" ? "first home" : null].filter(Boolean).join(" · ");
+
+  const server = (process.env.NTFY_SERVER ?? "https://ntfy.sh").replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${server}/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        topic,
+        title: lead.duringHours ? `New lead: ${v.name} — call now` : `New lead (after hours): ${v.name}`,
+        message: [
+          `${v.name} · ${v.phone}`,
+          facts,
+          lead.duringHours ? "Call within 5 minutes." : "Promised a call first thing next business morning.",
+        ].join("\n"),
+        // 5 = urgent (long vibration, pop-over) only inside callback hours;
+        // an 11pm lead shouldn't wake anyone, it's a first-thing call.
+        priority: lead.duringHours ? 5 : 3,
+        tags: ["house"],
+        click: `tel:${lead.tel}`,
+        actions: [
+          { action: "view", label: `Call ${firstName}`, url: `tel:${lead.tel}`, clear: true },
+          { action: "view", label: "Email", url: `mailto:${v.email}` },
+        ],
+      }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) console.error("[preapproval] ntfy rejected the push", res.status, await res.text());
+  } catch (err) {
+    console.error("[preapproval] could not reach ntfy", err);
   }
 }
