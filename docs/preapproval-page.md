@@ -159,6 +159,11 @@ push: lead name and number, area, price, timeframe, with a **Call** button that 
 lead. Urgent priority inside Mon–Fri 8am–6pm, normal after hours. It can't fail or delay a
 lead beyond 4 seconds; the email stays the record.
 
+The sending itself lives in `lib/leads.ts`, shared with the homepage consultation form
+(15 Sep 2026). Homepage leads use the same email and push variables below, so they also
+go to `LEAD_EMAIL_TO` and the same topic — at normal priority, since that form promises a
+reply within a business day, not a 5-minute call.
+
 **Public topic, by the client's choice (14 Sep 2026).** No ntfy account or token. On
 ntfy.sh anyone who knows a public topic's name can read it — and the push carries the
 lead's name and number, kept 12 hours — so **the topic name is the password**: long and
