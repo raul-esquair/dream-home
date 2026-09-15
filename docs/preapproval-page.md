@@ -1,36 +1,40 @@
 # "Get Preapproved" landing page
 
-**Status: built, not live.** `/preapproval` and `/preapproval-thank-you` are built,
-tested and committed on the `preapproval-page` branch (not merged to `main`, not
-deployed). The plan (research, reasoning, draft copy) is published at
-https://claude.ai/artifact/Nx2q8n5Mj1UwqupRxAF3GV. This file records the owners'
-answers, what was built, and what is still blocking launch.
+**Status: live, unlinked, not launched.** `/preapproval` and `/preapproval-thank-you` are
+on `main` (PR raul-esquair/dream-home#3) and deployed by Netlify at
+https://dreamhomerealestateandhomeloans.com/preapproval — `noindex` and not linked from
+anywhere, so no traffic until ads point at it. The plan (research, reasoning, draft copy)
+is published at https://claude.ai/artifact/Nx2q8n5Mj1UwqupRxAF3GV. This file records the
+owners' answers, what was built, and what is still blocking launch.
 
 Last worked: 14 September 2026.
 
 ## Where it stands
 
-**Waiting on Drew (Dhruv) — Google Ads.** Raul is sending him instructions: either add
-Raul as a Standard user (Admin → Access and security → Users → +), or create the
-conversion action himself ("Submit lead form", count One, set up manually with code —
-not a page-load/URL conversion) and send back the label from the event snippet
-(`send_to: 'AW-18451645072/<label>'`). Then Raul sets `NEXT_PUBLIC_GADS_PREAPPROVAL_LABEL`,
-**redeploys** (the value is baked in at build time), and sends one test lead ("Test
-Buyer"). The conversion should show "Recording conversions" within about a day.
+**Done (14 Sep 2026):** Resend connected — the domain is verified in Resend, and a live
+test from `leads@dreamhomerealestateandhomeloans.com` arrived. `NEXT_PUBLIC_SITE_URL` is
+set, so canonical and share previews use the real domain. ntfy push tested: a lead
+reached the phone with a working Call button.
 
-**Blocking launch, in order of effort:**
+**Next, in order:**
 
-1. **Lead email** — Resend account, `RESEND_API_KEY` + `LEAD_EMAIL_FROM` on a verified
-   domain. Without it production refuses submissions (by design — see "Lead email").
-2. **Site URL** — `NEXT_PUBLIC_SITE_URL` set to the live domain, or share previews and
-   the canonical link point at localhost.
-3. **Google Ads label** — above.
-4. **Content still pending** — Google rating, count and 2–3 reviews (the profile
-   blocked automated reading); street address; Dhruv's personal NMLS ID; a privacy
-   policy page (it must also mention the Google Ads tag and its cookies).
-5. **Licensing check** — Dhruv's DRE record still showed no broker on 14 Sep; the client
+1. **Route leads to Drew.** Netlify's `LEAD_EMAIL_TO` is still `raul@esquair.com` from the
+   live test. Delete it and redeploy so leads go to Dreamhomedrew@gmail.com — tell Drew
+   first, and get the ntfy app on his phone subscribed to the topic (the name is in
+   Netlify's `NTFY_TOPIC`; share it privately, it's the password).
+2. **Google Ads label** — waiting on Drew. Raul sent instructions: add Raul as a Standard
+   user (Admin → Access and security → Users → +), or create the conversion action
+   ("Submit lead form", count One, set up manually with code — not a page-load/URL
+   conversion) and send back the label from `send_to: 'AW-18451645072/<label>'`. Then set
+   `NEXT_PUBLIC_GADS_PREAPPROVAL_LABEL`, **redeploy** (baked in at build time), and send
+   one test lead.
+3. **Content still pending** — Google rating, count and 2–3 reviews (the profile blocked
+   automated reading); street address; Dhruv's personal NMLS ID; a privacy policy page
+   (it must also mention the Google Ads tag, its cookies, and that lead alerts pass
+   through ntfy).
+4. **Licensing check** — Dhruv's DRE record still showed no broker on 14 Sep; the client
    says the update hasn't posted. Re-check before ads run.
-6. **Compliance read** of the final copy, then merge `preapproval-page` to `main`.
+5. **Compliance read** of the final copy, then start the ads.
 
 **Also open, not blocking:** the phone link beside the FAQ needs an underline (a
 Lighthouse accessibility flag); the homepage's own FAQ uses restricted mortgage-ad
@@ -147,6 +151,29 @@ Make this the only Primary conversion action for the preapproval campaigns.
 The homepage's consultation form still calls `gtag('event', 'generate_lead')` on success.
 Now that the tag is live, that reaches Google Ads as an ordinary event — not a conversion
 unless someone makes it one.
+
+### Phone push (ntfy)
+
+After the email is accepted, `pushToPhone` in `app/preapproval/actions.ts` sends an ntfy
+push: lead name and number, area, price, timeframe, with a **Call** button that dials the
+lead. Urgent priority inside Mon–Fri 8am–6pm, normal after hours. It can't fail or delay a
+lead beyond 4 seconds; the email stays the record.
+
+**Public topic, by the client's choice (14 Sep 2026).** No ntfy account or token. On
+ntfy.sh anyone who knows a public topic's name can read it — and the push carries the
+lead's name and number, kept 12 hours — so **the topic name is the password**: long and
+random (e.g. `dreamhome-leads-` + 16 random characters), stored as a secret in Netlify,
+never shared beyond the subscribed phones. A reserved, deny-all topic (ntfy Supporter
+plan, $6/mo) can be added later with only `NTFY_TOKEN`; no code change.
+
+| Variable | Value |
+|---|---|
+| `NTFY_TOPIC` | the topic's name — setting it turns pushes on; mark secret |
+| `NTFY_TOKEN` | optional; only for a reserved topic |
+| `NTFY_SERVER` | optional; defaults to `https://ntfy.sh` |
+
+Drew's phone: the ntfy app, subscribed to the topic. ntfy.sh keeps messages 12 hours (the
+iPhone app needs that to deliver).
 
 ### Lead email — needed before launch
 
