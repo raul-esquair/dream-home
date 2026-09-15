@@ -26,6 +26,21 @@ npm run lint
 Verify UI changes in the browser, not by reasoning about the CSS. Several bugs in this
 codebase were invisible in the source and obvious on screen.
 
+## Two kinds of page
+
+The homepage lives in the `app/(site)` route group, whose layout adds the header, footer,
+orbs and booking bar. The root layout carries only fonts and `globals.css`, so ad landing
+pages can sit outside the group with no navigation. The first is `/preapproval` — its
+client answers, build notes and launch blockers are in `docs/preapproval-page.md`. Its
+copy is bound by mortgage advertising rules the homepage copy was never checked against:
+no rates, payments or down-payment figures, and nothing implying approval is quick or
+given by Dream Home. Read the header comment in `lib/preapproval.ts` before editing it.
+
+The Google Ads tag is site-wide in the root layout. The account's one conversion is a
+delivered preapproval lead, sent from `/preapproval-thank-you` via a one-time cookie
+(`lib/analytics.ts`). Don't add `gtag` events for clicks or page views — the client asked
+for form submissions only.
+
 ## All content is placeholder
 
 Listings, testimonials, proof numbers, phone, DRE/NMLS are **not real**. Eight of the

@@ -1441,6 +1441,147 @@
     opacity: 1;
   }
   .faq-panel > * { overflow: hidden; }
+
+  /* ---------------------------------------------------------------- *
+   * /preapproval landing page.
+   *
+   * No photograph anywhere on this page, so none of the measured-scrim
+   * rules above apply: every colour sits on the flat --color-bg or on
+   * these near-opaque surfaces, and the glow never lifts the ground by
+   * more than a few levels. Keep it that way, or measure.
+   * ---------------------------------------------------------------- */
+  .pa-page {
+    position: relative;
+    isolation: isolate;
+    overflow-x: clip;
+  }
+  /* Hero photograph and its scrims. Same rule as the homepage: hold the shade
+     over the copy, release it where there is none, and put the release
+     outside the text. Desktop copy runs to ~51% of the width; the form card
+     is opaque, so the house only has to read around it. */
+  .pa-hero-bg {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 940px;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .pa-hero-photo {
+    object-fit: cover;
+    object-position: 72% 38%;
+  }
+  .pa-hero-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      /* header band */
+      linear-gradient(180deg, rgba(8, 7, 10, 0.55) 0%, rgba(8, 7, 10, 0) 16%),
+      /* copy pool, released past the text column */
+      linear-gradient(90deg, rgba(8, 7, 10, 0.86) 0%, rgba(8, 7, 10, 0.8) 44%, rgba(8, 7, 10, 0.2) 58%, rgba(8, 7, 10, 0) 68%),
+      /* foot: dissolves into the page ground before the proof strip */
+      linear-gradient(180deg, rgba(8, 7, 10, 0) 58%, #08070a 100%);
+  }
+  @media (max-width: 1100px) {
+    /* Stacked, the copy spans the full width and sits over the lit house,
+       so the side pool is the wrong shape: an even wash instead, and the
+       photo ends above the form. */
+    .pa-hero-bg { height: 720px; }
+    .pa-hero-photo { object-position: 70% 45%; }
+    .pa-hero-bg::after {
+      background:
+        linear-gradient(rgba(8, 7, 10, 0.7), rgba(8, 7, 10, 0.7)),
+        linear-gradient(180deg, rgba(8, 7, 10, 0) 45%, #08070a 100%);
+    }
+  }
+
+  /* Hero: copy top-left, form right, call + Dhruv bottom-left. Stacked, the
+     form moves up between them so a phone reaches the first question on the
+     first screen. `1fr` on the second row lets the bottom block sit directly
+     under the copy instead of stretching to the form's height. */
+  .pa-hero {
+    display: grid;
+    grid-template-columns: 1.08fr 0.92fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "top form"
+      "bottom form";
+    column-gap: 64px;
+    row-gap: 36px;
+    align-items: start;
+  }
+  .pa-hero-top { grid-area: top; }
+  .pa-hero-form { grid-area: form; }
+  .pa-hero-bottom { grid-area: bottom; }
+  @media (max-width: 1100px) {
+    .pa-hero {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto;
+      grid-template-areas: "top" "form" "bottom";
+      row-gap: 28px;
+    }
+  }
+
+  /* The pinned bar shows at every width on this page (the homepage's stops at
+     1366px), so wide screens need the same room under the footer that
+     body's padding already gives narrower ones. */
+  @media (min-width: 1367px) {
+    .pa-page { padding-bottom: 76px; }
+  }
+
+  .pa-section {
+    margin-inline: auto;
+    max-width: 1240px;
+    padding: 110px 40px 0;
+  }
+  @media (max-width: 860px) {
+    .pa-section { padding: 72px 20px 0; }
+  }
+
+  /* The form card. Opaque rather than frosted: it carries the page's only
+     inputs, and a blur behind them would cost every frame of typing. */
+  .pa-card {
+    position: relative;
+    border-radius: 24px;
+    border: 1px solid rgba(233, 200, 119, 0.22);
+    background: linear-gradient(180deg, #15111e, #0e0b14);
+    padding: 32px 32px 26px;
+    box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.9);
+  }
+  @media (max-width: 860px) {
+    .pa-card { padding: 26px 20px 22px; border-radius: 20px; }
+  }
+
+  /* Closing card over the dusk-entry panorama. The photograph's centre is
+     already near-black, so on a wide card the shade only has to guard the
+     centre band the copy occupies and can release towards the lit edges.
+     Stacked, the card is narrower than it is tall, the crop lands on the lit
+     doorway, and an even wash takes over — same logic as the hero. */
+  .pa-cta { background-color: #08070a; }
+  .pa-cta-photo {
+    object-fit: cover;
+    object-position: 50% 50%;
+  }
+  .pa-cta::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(60% 85% at 50% 50%, rgba(8, 7, 10, 0.6) 0%, rgba(8, 7, 10, 0.45) 55%, rgba(8, 7, 10, 0.05) 100%);
+  }
+  /* Measured (390px, text hidden, worst pixel, 1.5% probe optimism removed):
+     desktop — headline 14.87, line 9.22, call 14.46. Mobile wash found by
+     sweep: 0.55 put the line under the headline at 4.81, too thin; 0.60
+     gives 5.30 (headline 5.13) and shows more of the doorway than the 0.72
+     first guess, which buried it. */
+  @media (max-width: 860px) {
+    .pa-cta-photo { object-position: 88% 50%; }
+    .pa-cta::after {
+      background: linear-gradient(rgba(8, 7, 10, 0.6), rgba(8, 7, 10, 0.6));
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ *
