@@ -18,7 +18,7 @@ app/
   layout.tsx        fonts, metadata, background orbs, header/footer/mobile bar
   page.tsx          section composition + FAQPage JSON-LD
   globals.css       design tokens (@theme), keyframes, shared component classes
-  actions.ts        submitLead server action
+  actions.ts        submitLead server action — emails and pushes each lead to Drew
 components/         one file per section; Calculator, Faq, LeadForm, Testimonials
                     and Process are "use client"
 lib/content.ts      all copy and placeholder data
@@ -567,8 +567,10 @@ The design has two breakpoints, exposed as `max-wide:` (≤1100px) and `max-mobi
    quote under about 130 characters, since `--tm-card-h` is fixed and a longer one will
    spill past the cover; and vary the `pages` count, which sets how thick each card looks.
 6. Live IDX/MLS feed for listings; real blog posts from MDX or a CMS.
-7. `submitLead` in `app/actions.ts` validates and logs only — wire it to email both agents
-   and push to the CRM.
+7. No CRM yet. `submitLead` in `app/actions.ts` emails each homepage lead to Drew and
+   pushes it to his phone through ntfy — the client's choice (15 Sep 2026), same route as
+   `/preapproval` (`lib/leads.ts`). Until 15 Sep 2026 it only logged, so any earlier
+   submission reached no one.
 
 ## Open questions for the next session
 

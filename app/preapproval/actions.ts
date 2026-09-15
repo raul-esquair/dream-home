@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { CONVERSION_COOKIE, THANK_YOU_PATH } from "@/lib/analytics";
+import { emailLead, pacificTime, pushLead } from "@/lib/leads";
 import {
   areas,
   consentText,
@@ -104,9 +105,8 @@ export async function submitPreapproval(
     return fail(`That didn’t go through on our end. Please call us at ${officePhone.display}.`, 3);
   }
 
-  // The email is the record; the push is the alarm. It goes only after the
-  // email is accepted (so Dhruv never gets a push for a lead the visitor was
-  // told had failed), and it can't fail the lead — see pushToPhone.
+  // The push goes only after the email is accepted, and can't fail the lead
+  // (lib/leads.ts).
   await pushToPhone(lead);
 
   // Only a delivered lead earns the conversion cookie. Short-lived, and
@@ -144,33 +144,18 @@ type Lead = {
 };
 
 /**
- * Emails the lead through Resend's HTTP API — no SDK, one fetch, so swapping
- * providers later touches only this function.
- *
- *   RESEND_API_KEY   required in production
- *   LEAD_EMAIL_TO    defaults to Dhruv's address
- *   LEAD_EMAIL_FROM  a sender on a domain verified in Resend
- *
- * Without a key, development logs the email and reports success so the flow
- * can be exercised; production refuses, so a missing key surfaces as a visible
- * error rather than leads vanishing into a log.
- *
- * The email doubles as the consent record: it carries the exact consent
- * wording shown, the timestamp, IP and user agent. Keep these emails.
+ * The lead email. It doubles as the consent record: it carries the exact
+ * consent wording shown, the timestamp, IP and user agent. Keep these emails.
  */
 async function deliverLead(lead: Lead): Promise<boolean> {
   const { values: v } = lead;
-  const pacific = lead.submittedAt.toLocaleString("en-US", {
-    timeZone: "America/Los_Angeles",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const pacific = pacificTime(lead.submittedAt);
 
   const subject = lead.duringHours
     ? `NEW PREAPPROVAL LEAD — call within 5 min: ${v.name}`
     : `NEW PREAPPROVAL LEAD (after hours) — call first thing: ${v.name}`;
 
-  const body = [
+  const text = [
     `${v.name}`,
     `Call: ${v.phone}   (tel:${lead.tel})`,
     `Email: ${v.email}`,
@@ -194,105 +179,31 @@ async function deliverLead(lead: Lead): Promise<boolean> {
     "Sent from dreamhome /preapproval",
   ].join("\n");
 
-  const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    if (process.env.NODE_ENV === "production") {
-      console.error("[preapproval] RESEND_API_KEY is not set — lead NOT delivered", { name: v.name });
-      return false;
-    }
-    console.info(`[preapproval] (dev, not emailed)\nSubject: ${subject}\n\n${body}`);
-    return true;
-  }
-
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: process.env.LEAD_EMAIL_FROM ?? "Dream Home Leads <onboarding@resend.dev>",
-        to: [process.env.LEAD_EMAIL_TO ?? "Dreamhomedrew@gmail.com"],
-        reply_to: v.email,
-        subject,
-        text: body,
-      }),
-    });
-    if (!res.ok) {
-      console.error("[preapproval] Resend rejected the lead", res.status, await res.text());
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("[preapproval] could not reach Resend", err);
-    return false;
-  }
+  return emailLead({ source: "preapproval", subject, text, replyTo: v.email });
 }
 
-/**
- * Push to Dhruv's phone through ntfy, so a lead rings in seconds instead of
- * waiting on an email notification — the 5-minute promise depends on it.
- *
- *   NTFY_TOPIC   the topic's name; setting it turns pushes on
- *   NTFY_TOKEN   optional — only for a reserved (password-protected) topic
- *   NTFY_SERVER  defaults to https://ntfy.sh
- *
- * The push carries the lead's name and number (tap to call). The client chose
- * a public topic (14 Sep 2026): on ntfy.sh anyone who knows a public topic's
- * name can read it, so THE NAME IS THE PASSWORD — keep it long and random
- * (e.g. dreamhome-leads-7fq2k9x4m8r1v6tz), never guessable, and treat it like
- * a secret in Netlify. Moving to a reserved topic later needs only NTFY_TOKEN.
- *
- * Sent as JSON, not headers: header values must be Latin-1, and a lead named
- * "Nguyễn" or a price with an en dash would make fetch throw.
- *
- * ntfy.sh keeps messages for 12 hours; the iPhone app needs that to deliver,
- * so caching is left on.
- *
- * Never throws and never holds the visitor for long: a 4-second cap, and any
- * failure is only logged — the email has already gone out.
- */
+/** The push — the 5-minute promise depends on it ringing in seconds. */
 async function pushToPhone(lead: Lead): Promise<void> {
-  const topic = process.env.NTFY_TOPIC;
-  if (!topic) {
-    if (process.env.NODE_ENV !== "production") console.info("[preapproval] (dev) push skipped — NTFY_TOPIC not set");
-    return;
-  }
-  const token = process.env.NTFY_TOKEN;
-
   const v = lead.values;
   const firstName = v.name.split(/\s+/)[0];
   const when = v.timeframe === "Just exploring" ? "just exploring" : `buying in ${v.timeframe}`;
   const facts = [v.area, v.price, when, v.firstHome === "Yes" ? "first home" : null].filter(Boolean).join(" · ");
 
-  const server = (process.env.NTFY_SERVER ?? "https://ntfy.sh").replace(/\/+$/, "");
-  try {
-    const res = await fetch(`${server}/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        topic,
-        title: lead.duringHours ? `New lead: ${v.name} — call now` : `New lead (after hours): ${v.name}`,
-        message: [
-          `${v.name} · ${v.phone}`,
-          facts,
-          lead.duringHours ? "Call within 5 minutes." : "Promised a call first thing next business morning.",
-        ].join("\n"),
-        // 5 = urgent (long vibration, pop-over) only inside callback hours;
-        // an 11pm lead shouldn't wake anyone, it's a first-thing call.
-        priority: lead.duringHours ? 5 : 3,
-        tags: ["house"],
-        click: `tel:${lead.tel}`,
-        actions: [
-          { action: "view", label: `Call ${firstName}`, url: `tel:${lead.tel}`, clear: true },
-          { action: "view", label: "Email", url: `mailto:${v.email}` },
-        ],
-      }),
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!res.ok) console.error("[preapproval] ntfy rejected the push", res.status, await res.text());
-  } catch (err) {
-    console.error("[preapproval] could not reach ntfy", err);
-  }
+  await pushLead({
+    source: "preapproval",
+    title: lead.duringHours ? `New lead: ${v.name} — call now` : `New lead (after hours): ${v.name}`,
+    message: [
+      `${v.name} · ${v.phone}`,
+      facts,
+      lead.duringHours ? "Call within 5 minutes." : "Promised a call first thing next business morning.",
+    ].join("\n"),
+    // 5 = urgent (long vibration, pop-over) only inside callback hours;
+    // an 11pm lead shouldn't wake anyone, it's a first-thing call.
+    priority: lead.duringHours ? 5 : 3,
+    click: `tel:${lead.tel}`,
+    actions: [
+      { action: "view", label: `Call ${firstName}`, url: `tel:${lead.tel}`, clear: true },
+      { action: "view", label: "Email", url: `mailto:${v.email}` },
+    ],
+  });
 }

@@ -135,6 +135,12 @@ export function LeadForm() {
         </SelectContent>
       </Select>
 
+      {/* Honeypot: hidden from people and assistive tech, filled by bots. */}
+      <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">
+        <label htmlFor="lead-company">Company</label>
+        <input id="lead-company" name="company" tabIndex={-1} autoComplete="off" />
+      </div>
+
       <button
         type="submit"
         disabled={pending}
